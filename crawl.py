@@ -12,14 +12,26 @@ def crawl(args):
         args(argparse.Namespace): an instance of argparse.Namespace class, use `python crawl.py --help` for more info 
     '''
     company = yf.Ticker(args.ticker)
-    history_price = company.history(start=args.start, end=args.end, interval=args.interval)
+    history_price = company.history(start=args.start, end=args.end, interval=args.interval).reset_index()
 
+    log_crawled_data(history_price)
 
     dataset_path = 'dataset'
     if not os.path.exists(dataset_path):
         os.makedirs(dataset_path)
-        
-    history_price.to_csv(f'{dataset_path}/{args.ticker}_{args.start}_{args.end}')
+
+    history_price.to_csv(f'{dataset_path}/{args.ticker}_{args.start}_{args.end}.csv')
+
+def log_crawled_data(history_price):
+    ''' Log the metadata of the crawled data
+
+    Arguments:
+        history_price(pandas dataframe): the crawled data in dataframe
+    '''
+    print(f'Total trading days: {len(history_price.index)}')
+    print(f'First trading day: {history_price.iloc[0]["Date"]}')
+    print(f'Last trading day: {history_price.iloc[len(history_price.index) - 1]["Date"]}')
+    print(f'Crawled data: {history_price.columns.values}')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
