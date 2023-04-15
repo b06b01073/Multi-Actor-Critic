@@ -1,6 +1,7 @@
 import pandas as pd
 import mplfinance as mpf
 from collections import defaultdict
+import os
 
 class StockMarket:
     '''A class to represent the stock market 
@@ -154,16 +155,20 @@ class StockMarket:
         '''
         print(f'first trade date: {self.first_trade_date}, last trade date: {self.last_trade_date}, total entries: {len(self.dataset)}')
 
-    def __plot_candles(self, filepath='img/trend.jpg'):
+    def __plot_candles(self, filepath='trend.jpg'):
         '''plot the candle sticks of the self.dataset dataframe
 
         Arguments:
             filepath(string): the path that the plot is going to be stored
         '''
+        img_path = 'img'
+        if not os.path.exists(img_path):
+            os.makedirs(img_path)
+
 
         plt_frame = self.dataset
         plt_frame.index = pd.DatetimeIndex(plt_frame['Date']) 
-        mpf.plot(plt_frame, type='candle', style='yahoo', volume=True, savefig=filepath, warn_too_much_data=4000)
+        mpf.plot(plt_frame, type='candle', style='yahoo', volume=True, savefig=os.path.join(img_path, filepath), warn_too_much_data=4000)
 
         print(f'Data plotted in {filepath}')
 
@@ -181,4 +186,4 @@ def make(csv_path, start, end):
     return StockMarket(csv_path, start, end)
 
 if __name__ == '__main__':
-    make('dataset/^GSPC_2000-01-01_2022-12-31.csv', start='2022-12-28', end='2022-12-30')
+    make('dataset/^GSPC_2000-01-01_2022-12-31.csv', start='2022-12-15', end='2022-12-30')

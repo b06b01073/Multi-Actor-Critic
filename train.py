@@ -3,7 +3,7 @@ import env
 
 def train():
     agent = ComponentAgent()
-    market = env.make('dataset/^GSPC_2000-01-01_2022-12-31.csv', start='2022-12-28', end='2022-12-30')
+    market = env.make('dataset/^GSPC_2000-01-01_2022-12-31.csv', start='2022-12-15', end='2022-12-30')
 
     state, _ = market.reset()
 
