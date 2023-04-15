@@ -14,6 +14,7 @@ def crawl(args):
     company = yf.Ticker(args.ticker)
     history_price = company.history(start=args.start, end=args.end, interval=args.interval).reset_index()
 
+    cleanse_hour(history_price)
     log_crawled_data(history_price)
 
     dataset_path = 'dataset'
@@ -22,11 +23,22 @@ def crawl(args):
 
     history_price.to_csv(f'{dataset_path}/{args.ticker}_{args.start}_{args.end}.csv')
 
+def cleanse_hour(history_price):
+    '''remove the hour stamp in the Date column in the dataframe
+
+    For example:
+        2000-01-03 00:00:00-05:00 -> 2000-01-03
+
+    Arguments:
+        history_price(pd dataframe): the crawled data in the csv file
+    '''
+    history_price['Date'] = history_price['Date'].apply(lambda x: str(x).split()[0])
+
 def log_crawled_data(history_price):
     ''' Log the metadata of the crawled data
 
     Arguments:
-        history_price(pandas dataframe): the crawled data in dataframe
+        history_price(pd dataframe): the crawled data in dataframe
     '''
     print(f'Total trading days: {len(history_price.index)}')
     print(f'First trading day: {history_price.iloc[0]["Date"]}')

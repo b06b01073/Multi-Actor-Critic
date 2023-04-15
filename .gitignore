@@ -1,1 +1,4 @@
 dataset/*
+img/*
+checker.txt
+__pycache__
