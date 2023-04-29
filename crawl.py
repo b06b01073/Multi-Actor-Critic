@@ -1,7 +1,7 @@
 import argparse
 import yfinance as yf
 import os
-
+import postprocess
 
 def crawl(args):
     ''' Crawl the data from yahoo finance using the yfinance package
@@ -15,6 +15,11 @@ def crawl(args):
     history_price = company.history(start=args.start, end=args.end, interval=args.interval).reset_index()
 
     cleanse_hour(history_price)
+    postprocess.get_MA(history_price, interval=3)
+    postprocess.get_MA(history_price, interval=5)
+    postprocess.get_MA(history_price, interval=10)
+    postprocess.get_std(history_price, interval=5)
+    
     log_crawled_data(history_price)
 
     dataset_path = 'dataset'

@@ -46,6 +46,8 @@ class StockMarket:
     def __get_dataset(self, start, end):
         ''' get the dataset and return the first state of the environment
 
+        Pitfall: Do not use the data other than open price in the last entry in the init state
+
         The dataset is the subset of self.history_data(the entire dataset) which falls in the range [start, end]
 
         Arguments:
@@ -73,18 +75,20 @@ class StockMarket:
 
         return self.init_state, self.__set_info()
 
-    def step(self, action):
+    def step(self, action, invested_asset):
         ''' The environment recieves the action from agent and returns the reward and the next state
 
         The environment calculate the reward function and decide the state transition based on the cur_trade_day and the action from the agent
 
         Arguments:
             action(float): should be in the [-1, 1], the action from the agent
+            invested_asset(float): the agent's investment
 
         Returns:
             self.cur_state(dataframe): the next state
             reward(float): the reward of the action
             self.terminated(bool): whether the state is a terminated state(the last trade day)
+            earning(float): the agent's earning
             info: info 
         '''
 
@@ -92,7 +96,7 @@ class StockMarket:
         assert action >= -1.0 and action <= 1.0, f'action out of range(should be in [-1, 1] but recieved {action})'
             
         # calcualte reward
-        reward = self.__reward_function(action)
+        reward, earning = self.__reward_function(action, invested_asset)
 
         # state transition
         self.cur_state = self.__state_transition()
@@ -103,21 +107,29 @@ class StockMarket:
         # update info
         info = None if self.terminated else self.__set_info()
 
-        return self.cur_state, reward, self.terminated, info
+        return self.cur_state, reward, self.terminated, earning, info
 
-    def __reward_function(self, action):
+    def __reward_function(self, action, invested_asset):
         '''calculate the reward based on the given action and the stock price increase rate
         
         Arguments:
             action(float): the agent's action(should be in [-1, 1])
+            invested_asset(float): the agent's investment 
 
         Return:
-            return the calculated reward
+            (i)reward according to the reward function specified in spec
+            (ii)the agent's earning
         '''
         cur_day_data = self.dataset.iloc[self.cur_trade_day]
-        increase_rate = (cur_day_data['Close'] - cur_day_data['Open']) / cur_day_data['Open']
+        close_price, open_price = cur_day_data['Close'], cur_day_data['Open']
+        increase_rate = (close_price - open_price) / open_price
 
-        return increase_rate * 100 * action 
+        price_ratio = close_price / open_price
+        earning = invested_asset * price_ratio
+
+        if (action >= 0 and price_ratio >= 1) or (action < 0 and price_ratio <= 1)
+
+        return increase_rate * 100 * action, earning
 
 
     def __state_transition(self):
@@ -178,7 +190,11 @@ def make(csv_path, start, end):
     initialize the stock market environment by passing the csv_path, start and end to it
 
     Arguments:
-        
+        csv_path(str): the csv file path of the stock history data
+
+        start(str): Format: YYYY-MM-DD. the data start from the specified start time. Note that the start time is not equivalent to first trade day.
+
+        end(str): Format: YYYY-MM-DD. the data end at the specified end time. Note that the end time is not equivalent to last trade day.
 
     Return:
         returns the StockMarket class instance
