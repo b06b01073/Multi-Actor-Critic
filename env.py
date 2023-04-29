@@ -127,7 +127,6 @@ class StockMarket:
         price_ratio = close_price / open_price
         earning = invested_asset * price_ratio
 
-        if (action >= 0 and price_ratio >= 1) or (action < 0 and price_ratio <= 1)
 
         return increase_rate * 100 * action, earning
 
