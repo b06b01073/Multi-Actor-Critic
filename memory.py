@@ -9,8 +9,8 @@ import numpy as np
 
 # This is to be understood as a transition: Given `state0`, performing `action`
 # yields `reward` and results in `state1`, which might be `terminal`.
-Experience = namedtuple('Experience', 'action_bc, state0, action, reward, state1, terminal1')
-# Experience = namedtuple('Experience', 'state0, action, reward, state1, terminal1')
+# Experience = namedtuple('Experience', 'action_bc, state0, action, reward, state1, terminal1')
+Experience = namedtuple('Experience', 'state0, action, reward, state1, terminal1')
 
 
 def sample_batch_indexes(low, high, size):
@@ -128,9 +128,9 @@ class EpisodicMemory(Memory):
         # self.memory = deque(maxlen=capacity)
         self.trajectory = [] # Temporal list of episode
 
-    def append(self, action_bc, state0, action, reward, terminal, training=True):
+    def append(self, state0, action, reward, terminal, training=True):
         #先sample出一個固定maxlen的traj
-        self.trajectory.append(Experience(action_bc=action_bc, state0=state0, action=action, reward=reward, state1=None, terminal1=terminal)) 
+        self.trajectory.append(Experience(state0=state0, action=action, reward=reward, state1=None, terminal1=terminal)) 
         
         # 因為self.max_train_traj_len = args.trajectory_length = 10
         # 所以整段episode會被分段存取？ 所以replay buffer裡每段episode長度只有10。

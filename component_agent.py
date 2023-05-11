@@ -33,7 +33,6 @@ class ComponentAgent:
         
         # Hyper-parameters
         self.is_training = True
-        self.is_BClone = args.is_BClone
         self.rnn_mode = args.rnn_mode
         self.tau = args.tau
         self.discount = args.discount
@@ -58,10 +57,7 @@ class ComponentAgent:
 
 
         ### initialized values 
-        self.actor_loss = 0
-        self.BC_loss = 0
-        self.BC_loss_Qf = 0
-        self.tot_policy_loss = 0
+        self.total_policy_loss = 0
         self.critic_loss = 0
 
         
@@ -100,7 +96,7 @@ class ComponentAgent:
             a_cx = Variable(torch.zeros(self.num_layer, self.batch_size, self.hidden_rnn)).type(FLOAT).cuda()
             a_hx = Variable(torch.zeros(self.num_layer, self.batch_size, self.hidden_rnn)).type(FLOAT).cuda()
             
-            action_bc = np.stack((trajectory.action_bc for trajectory in experiences[t]))
+            # action_bc = np.stack((trajectory.action_bc for trajectory in experiences[t]))
             state0 = np.stack((trajectory.state0 for trajectory in experiences[t]))          
             action = np.stack((trajectory.action for trajectory in experiences[t]))
             action = to_tensor(action)
