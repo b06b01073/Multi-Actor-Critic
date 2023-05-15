@@ -13,9 +13,10 @@ def train(args):
 
     while True:
         action, invested_asset = agent.take_action(state)
+        print(invested_asset)
         state, reward, terminated, earning,_ = market.step(action, invested_asset)
-
-
+        print(state)
+        print(reward,earning)
         earnings.append(earning - args.asset)
         agent.update_asset(earning)
         agent.learn()
@@ -30,10 +31,10 @@ def train(args):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--data_path', '-d', type=str, default='dataset/^GSPC_2000-01-01_2022-12-31.csv')
-    parser.add_argument('--start', '-s', type=str, default='2022-12-15')
-    parser.add_argument('--end', '-e', type=str, default='2022-12-30')
-    parser.add_argument('--asset', '-a', type=float, default=30000)
+    parser.add_argument('--data_path', '-d', type=str, default='TX_data/TX_TI.csv')
+    parser.add_argument('--start', '-s', type=str, default='2010-01-04')
+    parser.add_argument('--end', '-e', type=str, default='2023-12-30')
+    parser.add_argument('--asset', '-a', type=float, default=1000000)
     
     args = parser.parse_args()
 
