@@ -32,6 +32,7 @@ class StockMarket:
 
         self.data_interval = data_interval
         self.history_data = pd.read_csv(csv_path, index_col=0)
+        #print(self.history_data)
         self.dataset, self.init_state = self.__get_dataset(start, end)
         self.cur_trade_day = 0
         self.terminated = False
@@ -143,9 +144,11 @@ class StockMarket:
         next_day = self.cur_trade_day + 1
         if next_day >= len(self.dataset):  # there is no next day(cur day is the last day)
             return None
+        if next_day>10:
+            new_state = pd.concat([self.cur_state, pd.DataFrame([self.dataset.iloc[next_day]])], ignore_index=True).tail(-1)
+        else:
+            new_state = pd.concat([self.cur_state, pd.DataFrame([self.dataset.iloc[next_day]])], ignore_index=True)
         
-        new_state = pd.concat([self.cur_state, pd.DataFrame([self.dataset.iloc[next_day]])], ignore_index=True).tail(-1)
-
         return new_state
 
 
@@ -158,7 +161,7 @@ class StockMarket:
 
         self.info['cur_trade_day'] = self.cur_trade_day
         self.info['cur_date'] = self.dataset.iloc[self.cur_trade_day]['Date']
-
+        
         return self.info
 
     def __log_init_info(self):
@@ -201,4 +204,4 @@ def make(csv_path, start, end):
     return StockMarket(csv_path, start, end)
 
 if __name__ == '__main__':
-    make('dataset/^GSPC_2000-01-01_2022-12-31.csv', start='2022-12-15', end='2022-12-30')
+    make('TX_data/TX_TI.csv', start='2010-01-04', end='2022-12-30')

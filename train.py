@@ -13,6 +13,7 @@ def train(args):
    
     earnings = []
 
+
     for i in range(args.epoch):
         obs = market.reset()
         agent.reset_noise()
@@ -45,6 +46,7 @@ def train(args):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
+
     parser.add_argument('--data_path', '-d', type=str, default='dataset/^GSPC_2000-01-01_2022-12-31.csv')
     parser.add_argument('--start', '-s', type=str, default='2022-12-15')
     parser.add_argument('--end', '-e', type=str, default='2022-12-30')
@@ -104,6 +106,12 @@ if __name__ == '__main__':
     parser.add_argument('--logdir', default='log')
     # parser.add_argument('--mode', default='test', type=str, help='support option: train/test')
     parser.add_argument('--mode', default='train', type=str, help='support option: train/test')
+
+    parser.add_argument('--data_path', '-d', type=str, default='TX_data/TX_TI.csv')
+    parser.add_argument('--start', '-s', type=str, default='2010-01-04')
+    parser.add_argument('--end', '-e', type=str, default='2023-12-30')
+    parser.add_argument('--asset', '-a', type=float, default=1000000)
+
     
     args = parser.parse_args()
 
