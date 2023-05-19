@@ -1,6 +1,8 @@
 import pandas as pd
 import mplfinance as mpf
 from collections import defaultdict
+import math
+from datetime import datetime
 import os
 
 class StockMarket:
@@ -128,7 +130,7 @@ class StockMarket:
         price_ratio = close_price / open_price
         earning = invested_asset * price_ratio
 
-
+        self.FeeCalculation(1)
         return increase_rate * 100 * action, earning
 
 
@@ -150,7 +152,6 @@ class StockMarket:
             new_state = pd.concat([self.cur_state, pd.DataFrame([self.dataset.iloc[next_day]])], ignore_index=True)
         
         return new_state
-
 
     def __set_info(self):
         ''' update the info attribute
@@ -186,6 +187,20 @@ class StockMarket:
 
         print(f'Data plotted in {filepath}')
 
+    def Money_to_Lot(self,invested_asset):
+        FutureCost=23000
+        Lot=math.floor(invested_asset/FutureCost)
+        return Lot
+    def FeeCalculation(self,Lot):
+        Tax=0.00002
+        Fee=12
+        DFee=8
+        TotalCost=0
+        FutureCost=23000*Lot
+        FutureTax=FutureCost*Tax
+        FutureFee=Lot*Fee
+        print(datetime(self.history_date['Date'][self.cur_trade_day]).isocalendar())
+        #if 
 def make(csv_path, start, end):
     ''' create the stock market environment
 
