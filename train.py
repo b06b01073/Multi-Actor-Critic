@@ -6,8 +6,9 @@ import env
 from memory import EpisodicMemory
 
 def train(args):
-    agent = ComponentAgent(args.asset)
-    market = env.make(csv_path=args.data_path, start=args.start, end=args.end)
+    agent = ComponentAgent(args)
+    market = env.make(csv_path=args.data_path, start=args.start, end=args.end, 
+                      FutureCost=args.FutureCost, FutureFee=args.FutureFee, FutureDFee=args.FutureDfee, FutureTax=args.FutureTax)
 
     memory = EpisodicMemory(capacity=args.rmsize, max_train_traj_len=args.exp_traj_len,window_length=args.window_length)
    
@@ -15,29 +16,34 @@ def train(args):
 
 
     for i in range(args.epoch):
+        print(i)
         obs = market.reset()
         agent.reset_noise()
         total_reward = 0
 
-        for _ in range(args.max_iter):
-            action, invested_asset = agent.take_action(obs)
-            next_obs, earning, terminated, _ = market.step(action, invested_asset)
+        while True:
+            action, invested_asset = 1, 25000
+            next_obs, reward, terminated, earning,_ = market.step(action, invested_asset)
 
             # memory.append(action_bc, state0, action, reward, done)
-            memory.append(next_obs, action, earning,terminated)
+            memory.append(next_obs, action, reward,terminated)
             obs = next_obs
             experiences = memory.sample(args.batch_size)
 
             earnings.append(earning - args.asset)
             agent.update_asset(earning)
 
-            agent.learn(experiences)
+
+            print(experiences)
+            if experiences is not None:
+                agent.learn(experiences)
             agent.soft_update()
 
             total_reward += earning
-
-        if terminated:
-            break
+            print(terminated)
+            if terminated:
+                break
+        print(total_reward)
     
     plt.clf()
     plt.plot(earnings)
@@ -47,10 +53,7 @@ def train(args):
 if __name__ == '__main__':
     parser = ArgumentParser()
 
-    parser.add_argument('--data_path', '-d', type=str, default='dataset/^GSPC_2000-01-01_2022-12-31.csv')
-    parser.add_argument('--start', '-s', type=str, default='2022-12-15')
-    parser.add_argument('--end', '-e', type=str, default='2022-12-30')
-    parser.add_argument('--asset', '-a', type=float, default=30000)
+    
 
     ##### Model Setting #####
     # parser.add_argument('--rnn_mode', default='lstm', type=str, help='RNN mode: LSTM/GRU')
@@ -63,6 +66,7 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_fc2', default=64, type=int, help='hidden num of 2nd-fc layer')
     parser.add_argument('--hidden_fc3', default=32, type=int, help='hidden num of 3rd-fc layer')
     parser.add_argument('--init_w', default=0.005, type=float, help='initialize model weights') 
+    parser.add_argument('--epoch', default=300, type=int) 
     
     ##### Learning Setting #####
     parser.add_argument('--r_rate', default=0.0001, type=float, help='gru layer learning rate')  
@@ -72,7 +76,7 @@ if __name__ == '__main__':
     parser.add_argument('--beta2', default=0.9, type=float, help='mometum beta2 for Adam optimizer')
     parser.add_argument('--sch_step_size', default=16*150, type=float, help='LR_scheduler: step_size')
     parser.add_argument('--sch_gamma', default=0.5, type=float, help='LR_scheduler: gamma')
-    parser.add_argument('--bsize', default=100, type=int, help='minibatch size')
+    parser.add_argument('--batch_size', default=100, type=int, help='minibatch size')
     
     ##### RL Setting #####
     parser.add_argument('--warmup', default=100, type=int, help='only filling the replay memory without training')
@@ -98,7 +102,7 @@ if __name__ == '__main__':
     
     ##### Other Setting #####
     parser.add_argument('--seed', default=627, type=int, help='seed number')
-    # parser.add_argument('--date', default=629, type=int, help='date for output file name')
+    parser.add_argument('--date', default=629, type=int, help='date for output file name')
     parser.add_argument('--save_threshold', default=20, type=int, help='lack margin stop ratio')
     parser.add_argument('--lackM_ratio', default=0.7, type=int, help='lack margin stop ratio')
     parser.add_argument('--debug', default=True, dest='debug', action='store_true')
@@ -108,9 +112,14 @@ if __name__ == '__main__':
     parser.add_argument('--mode', default='train', type=str, help='support option: train/test')
 
     parser.add_argument('--data_path', '-d', type=str, default='TX_data/TX_TI.csv')
-    parser.add_argument('--start', '-s', type=str, default='2010-01-04')
-    parser.add_argument('--end', '-e', type=str, default='2023-12-30')
+    parser.add_argument('--start', '-s', type=str, default='2022-12-28')
+    parser.add_argument('--end', '-e', type=str, default='2022-12-30')
     parser.add_argument('--asset', '-a', type=float, default=1000000)
+    
+    parser.add_argument('--FutureCost', '-FC', type=float, default=23000)
+    parser.add_argument('--FutureTax', '-FT', type=float, default=0.00002)
+    parser.add_argument('--FutureFee', '-FF', type=float, default=12)
+    parser.add_argument('--FutureDfee', '-FDF', type=float, default=8)
 
     
     args = parser.parse_args()

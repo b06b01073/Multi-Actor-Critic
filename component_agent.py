@@ -11,8 +11,8 @@ from torch.autograd import Variable
 import torch.optim.lr_scheduler as Scheduler
 
 class ComponentAgent:
-    def __init__(self, asset,args):
-        self.asset = asset
+    def __init__(self, args):
+        self.asset = args.asset
         # TODO: build the nn model
         # self.net = None
 
@@ -89,7 +89,8 @@ class ComponentAgent:
     def learn(self,experiences):
         # TODO: update the model params
         t_len = len(experiences)
-        action_bc, state0, action, reward, done = experiences
+        print(experiences)
+        state0, action, reward, state1, done = experiences
 
         for t in range(t_len):
 
@@ -218,7 +219,7 @@ class ComponentAgent:
         self.rnn.reset_hidden_state(done)
 
     # training : reset_noises
-    def reset(self):
+    def reset_noise(self):
         self.random_process.reset_states()
 
     def cuda(self):

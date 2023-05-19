@@ -143,6 +143,9 @@ class EpisodicMemory(Memory):
     # def sample(self, batch_size, maxlen=None):
     def sample(self, batch_size, maxlen=0):
         #### sample a batch of trajectories ####
+        if len(self.memory) == 0:
+            return None
+        
         batch = [self.sample_trajectory(maxlen=maxlen) for _ in range(batch_size)]
         
         #### Truncate trajectories aligned to the minlen_traj ####

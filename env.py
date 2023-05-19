@@ -20,7 +20,7 @@ class StockMarket:
         first_trade_date(str): date in yyyy-mm-dd format(logging only), the first trade date in the dataset
         last_trade_date(str): date in yyyy-mm-dd format(logging only), the last trade date in the dataset      
     '''
-    def __init__(self, csv_path, start, end, data_interval=10):
+    def __init__(self, csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax, data_interval=10):
         ''' initialze the env
 
         The attribute is commented at the beginning of the class
@@ -45,6 +45,11 @@ class StockMarket:
         self.last_trade_date = self.dataset.iloc[len(self.dataset) - 1]['Date'] # for logging only
         self.__log_init_info()
         self.__plot_candles()
+        
+        self.FutureCost=FutureCost
+        self.FutureFee=FutureFee
+        self.FutureDFee=FutureDFee
+        self.FutureTax=FutureTax
 
     def __get_dataset(self, start, end):
         ''' get the dataset and return the first state of the environment
@@ -130,7 +135,7 @@ class StockMarket:
         price_ratio = close_price / open_price
         earning = invested_asset * price_ratio
 
-        self.FeeCalculation(1)
+        #self.FeeCalculation(1)
         return increase_rate * 100 * action, earning
 
 
@@ -198,10 +203,11 @@ class StockMarket:
         TotalCost=0
         FutureCost=23000*Lot
         FutureTax=FutureCost*Tax
-        FutureFee=Lot*Fee
-        print(datetime(self.history_date['Date'][self.cur_trade_day]).isocalendar())
+        #print(type(self.history_data['Date'][self.cur_trade_day]))
+        #print(datetime.strptime(self.history_data['Date'][self.cur_trade_day]).isocalendar())
         #if 
-def make(csv_path, start, end):
+        
+def make(csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax):
     ''' create the stock market environment
 
     initialize the stock market environment by passing the csv_path, start and end to it
@@ -216,7 +222,7 @@ def make(csv_path, start, end):
     Return:
         returns the StockMarket class instance
     '''
-    return StockMarket(csv_path, start, end)
+    return StockMarket(csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax)
 
-if __name__ == '__main__':
-    make('TX_data/TX_TI.csv', start='2010-01-04', end='2022-12-30')
+#if __name__ == '__main__':
+    #make('TX_data/TX_TI.csv', start='2010-01-04', end='2022-12-30', FutureCost, FutureFee, FutureDFee, FutureTax)

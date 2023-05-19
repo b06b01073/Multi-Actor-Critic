@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from util import *
 
+device='cuda' if torch.cuda.is_available() else 'cpu'
 
 def fanin_init(size, fanin=None):
     fanin = fanin or size[0]
@@ -29,17 +30,17 @@ class RNN(nn.Module):
             self.rnn = nn.GRU(input_size=self.input_size, hidden_size=self.hidden_rnn, num_layers=self.num_layer,
                           batch_first=True, bidirectional=False, dropout=0.3)
         
-        self.cx = Variable(torch.zeros(self.num_layer, 1, self.hidden_rnn)).type(FLOAT).cuda()
-        self.hx = Variable(torch.zeros(self.num_layer, 1, self.hidden_rnn)).type(FLOAT).cuda()
+        self.cx = Variable(torch.zeros(self.num_layer, 1, self.hidden_rnn)).type(FLOAT).to(device)
+        self.hx = Variable(torch.zeros(self.num_layer, 1, self.hidden_rnn)).type(FLOAT).to(device)
         
     def reset_hidden_state(self, done=True):
         if done == True:
             ### hx/cx：[num_layer, batch, hidden_len] ###
-            self.cx = Variable(torch.zeros(self.num_layer, 1, self.hidden_rnn)).type(FLOAT).cuda()
-            self.hx = Variable(torch.zeros(self.num_layer, 1, self.hidden_rnn)).type(FLOAT).cuda()
+            self.cx = Variable(torch.zeros(self.num_layer, 1, self.hidden_rnn)).type(FLOAT).to(device)
+            self.hx = Variable(torch.zeros(self.num_layer, 1, self.hidden_rnn)).type(FLOAT).to(device)
         else:
-            self.cx = Variable(self.cx.data).type(FLOAT).cuda()
-            self.hx = Variable(self.hx.data).type(FLOAT).cuda()
+            self.cx = Variable(self.cx.data).type(FLOAT).to(device)
+            self.hx = Variable(self.hx.data).type(FLOAT).to(device)
         
     def forward(self, x, hidden_states=None):
         if self.rnn_mode == 'lstm':
