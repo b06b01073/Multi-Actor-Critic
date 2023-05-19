@@ -24,6 +24,7 @@ def train(args):
 
         while True:
             action, invested_asset = agent.take_action(obs)
+            #action, invested_asset = 1, 50000
             next_obs, reward, terminated, earning,_ = market.step(action, invested_asset)
 
             # memory.append(action_bc, state0, action, reward, done)
@@ -113,7 +114,7 @@ if __name__ == '__main__':
     parser.add_argument('--mode', default='train', type=str, help='support option: train/test')
 
     parser.add_argument('--data_path', '-d', type=str, default='TX_data/TX_TI.csv')
-    parser.add_argument('--start', '-s', type=str, default='2022-12-28')
+    parser.add_argument('--start', '-s', type=str, default='2010-01-04')
     parser.add_argument('--end', '-e', type=str, default='2022-12-30')
     parser.add_argument('--asset', '-a', type=float, default=1000000)
     

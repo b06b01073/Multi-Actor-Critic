@@ -142,9 +142,8 @@ class StockMarket:
         Lot=self.Money_to_Lot(invested_asset)
         final_price=Lot*price_change
         earning = final_price*50*B
-        #print(earning)
-        #self.FeeCalculation(1)
-        return increase_rate * 100 * action, earning
+        TransactionFee=self.FeeCalculation(Lot)
+        return increase_rate * 100 * action, earning-TransactionFee
 
 
     def __state_transition(self):
@@ -201,20 +200,33 @@ class StockMarket:
         print(f'Data plotted in {filepath}')
 
     def Money_to_Lot(self,invested_asset):
+        '''
+        calculate the number of Lot Future 
+        input: invested money
+        output: Lot(s) of future (only purchase the Lot of Future that the Cost is less than invested_asset)
+        '''
         FutureCost=23000
         Lot=math.floor(invested_asset/FutureCost)
         return Lot
     def FeeCalculation(self,Lot):
+        '''
+        calculate the transaction Fee include the Tax and Fee
+        input: Lots of Future
+        output: Transaction Fee
+        '''
         Tax=0.00002
         Fee=12
         DFee=8
         TotalCost=0
         FutureCost=23000*Lot
         FutureTax=FutureCost*Tax
-        #print(type(self.history_data['Date'][self.cur_trade_day]))
-        #print(datetime.strptime(self.history_data['Date'][self.cur_trade_day]).isocalendar())
-        #if 
-        
+        temp=pd.Timestamp(self.history_data['Date'][self.cur_trade_day])
+        FirstDayMonth=datetime(temp.year,temp.month,1)
+        if temp.isocalendar()[1]-FirstDayMonth.isocalendar()[1]+1 == 3 and temp.isocalendar()[2]==2:
+            TotalCost=FutureTax+(Fee+DFee)*Lot
+        else:
+            TotalCost=FutureTax+Fee*Lot*2
+        return math.ceil(TotalCost)
 def make(csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax):
     ''' create the stock market environment
 
