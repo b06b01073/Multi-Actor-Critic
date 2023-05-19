@@ -19,10 +19,11 @@ def train(args):
         print(i)
         obs = market.reset()
         agent.reset_noise()
+        agent.reset_asset()
         total_reward = 0
 
         while True:
-            action, invested_asset = 1, 25000
+            action, invested_asset = agent.take_action(obs)
             next_obs, reward, terminated, earning,_ = market.step(action, invested_asset)
 
             # memory.append(action_bc, state0, action, reward, done)
@@ -34,13 +35,13 @@ def train(args):
             agent.update_asset(earning)
 
 
-            print(experiences)
+          #  print(experiences)
             if experiences is not None:
                 agent.learn(experiences)
             agent.soft_update()
 
             total_reward += earning
-            print(terminated)
+          #  print(terminated)
             if terminated:
                 break
         print(total_reward)

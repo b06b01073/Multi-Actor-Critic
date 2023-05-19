@@ -12,6 +12,7 @@ import torch.optim.lr_scheduler as Scheduler
 
 class ComponentAgent:
     def __init__(self, args):
+        self.init_asset = args.asset
         self.asset = args.asset
         # TODO: build the nn model
         # self.net = None
@@ -60,6 +61,8 @@ class ComponentAgent:
         self.total_policy_loss = 0
         self.critic_loss = 0
 
+    def reset_asset(self):
+        self.asset = self.init_asset
         
 
     def take_action(self, state, noise_enable=True, decay_epsilon=True):
@@ -89,7 +92,7 @@ class ComponentAgent:
     def learn(self,experiences):
         # TODO: update the model params
         t_len = len(experiences)
-        print(experiences)
+        #print(experiences)
         state0, action, reward, state1, done = experiences
 
         for t in range(t_len):

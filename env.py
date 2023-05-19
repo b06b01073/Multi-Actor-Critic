@@ -131,10 +131,18 @@ class StockMarket:
         cur_day_data = self.dataset.iloc[self.cur_trade_day]
         close_price, open_price = cur_day_data['Close'], cur_day_data['Open']
         increase_rate = (close_price - open_price) / open_price
-
-        price_ratio = close_price / open_price
-        earning = invested_asset * price_ratio
-
+        B=0
+        if action > 0: 
+            B=1
+        elif action==0:
+            B=0
+        else:
+            B=-1
+        price_change = close_price - open_price
+        Lot=self.Money_to_Lot(invested_asset)
+        final_price=Lot*price_change
+        earning = final_price*50*B
+        #print(earning)
         #self.FeeCalculation(1)
         return increase_rate * 100 * action, earning
 
