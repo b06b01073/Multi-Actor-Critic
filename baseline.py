@@ -1,6 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-
+import math
 from argparse import ArgumentParser
 
 
@@ -24,14 +24,36 @@ def baseline(args):
     plt.savefig('img/baseline.jpg')
 
 
+def MoneytoLot(args):
+    '''
+    Change Money to Lot
+    '''
+    TotalCost=args.FutureCost+args.FutureMaintainCost
+    return math.floor(args.asset/TotalCost)
 
+def TotalCost(args,Lot):
+    '''
+    Calculate Tax and Fee of all Lot
+    input: # of Lot
+    output: Tax and Fee
+    '''
+    Tax=args.FutureTax*Lot
+    Fee=(args.FutureFee+args.FutureDFee)*Lot
+    return Tax+Fee
+    
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--data_path', '-d', type=str, default='dataset/^GSPC_2000-01-01_2022-12-31.csv')
-    parser.add_argument('--start', '-s', type=str, default='2022-12-15')
+    parser.add_argument('--data_path', '-d', type=str, default='TX_data/TX_TI.csv')
+    parser.add_argument('--start', '-s', type=str, default='2010-01-04')
     parser.add_argument('--end', '-e', type=str, default='2022-12-30')
-    parser.add_argument('--asset', '-a', type=float, default=30000)
-    
+    parser.add_argument('--asset', '-a', type=float, default=100000)
+    parser.add_argument('--withasset', '-wa', type=bool, default=True)
+    # future cost
+    parser.add_argument('--FutureCost', '-FC', type=float, default=46000)
+    parser.add_argument('--FutureMaintainCost','-FMC',type=float,default=35250)
+    parser.add_argument('--FutureTax', '-FT', type=float, default=0.00002)
+    parser.add_argument('--FutureFee', '-FF', type=float, default=12)
+    parser.add_argument('--FutureDfee', '-FDF', type=float, default=8)
     args = parser.parse_args()
 
     baseline(args)

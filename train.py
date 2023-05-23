@@ -118,6 +118,7 @@ if __name__ == '__main__':
     parser.add_argument('--end', '-e', type=str, default='2022-12-30')
     parser.add_argument('--asset', '-a', type=float, default=1000000)
     
+    # future cost
     parser.add_argument('--FutureCost', '-FC', type=float, default=23000)
     parser.add_argument('--FutureTax', '-FT', type=float, default=0.00002)
     parser.add_argument('--FutureFee', '-FF', type=float, default=12)
