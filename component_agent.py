@@ -1,5 +1,5 @@
 import numpy as np
-from model import (RNN, Actor, Critic)
+from model import Actor, Critic
 from util import *
 from random_process import OrnsteinUhlenbeckProcess
 from scipy.special import softmax
@@ -10,24 +10,29 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.optim.lr_scheduler as Scheduler
 
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
 class ComponentAgent:
     def __init__(self, args):
+        print(f'using rnn mode: {args.rnn_mode}')
+
         self.init_asset = args.asset
         self.asset = args.asset
+        self.data_interval = args.data_interval
         # TODO: build the nn model
         # self.net = None
 
-        nb_actions = 2
+        nb_actions = 1
+
+        self.agent_type = args.agent_type
+        self.input_size = args.input_size
         self.date = args.date
-        ##### Create RNN Layer #####
-        self.rnn = RNN(args)
-        self.rnn_target = RNN(args)
         ##### Create Actor Network #####
-        self.actor = Actor(args)
-        self.actor_target = Actor(args)
+        self.actor = Actor(nb_states=self.input_size).to(device)
+        self.actor_target = Actor(nb_states=self.input_size).to(device)
         ##### Create Critic Network #####
-        self.critic = Critic(args)
-        self.critic_target = Critic(args)
+        self.critic = Critic(nb_states=self.input_size).to(device)
+        self.critic_target = Critic(nb_states=self.input_size).to(device)
 
         hard_update(self.actor_target, self.actor) # Make sure target is with the same weight
         hard_update(self.critic_target, self.critic)
@@ -41,16 +46,10 @@ class ComponentAgent:
         self.epsilon = 1.0
         self.random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=args.ou_theta, mu=args.ou_mu, sigma=args.ou_sigma)
 
-        if torch.cuda.is_available() : 
-            self.cuda()
-            print('USE CUDA')
-
 
         ### Optimizer and LR_scheduler ###
         beta1 = args.beta1
         beta2 = args.beta2
-        self.rnn_optim = Adam(self.rnn.parameters(), lr=args.r_rate, betas=(beta1, beta2))
-        self.rnn_scheduler = Scheduler.StepLR(self.rnn_optim, step_size=args.sch_step_size, gamma=args.sch_gamma)
         self.critic_optim  = Adam(self.critic.parameters(), lr=args.c_rate, betas=(beta1, beta2))
         self.critic_scheduler = Scheduler.StepLR(self.critic_optim, step_size=args.sch_step_size, gamma=args.sch_gamma)
         self.actor_optim  = Adam(self.actor.parameters(), lr=args.a_rate, betas=(beta1, beta2))
@@ -61,22 +60,33 @@ class ComponentAgent:
         self.total_policy_loss = 0
         self.critic_loss = 0
 
+
+        self.reward_scale = args.reward_scale
+
     def reset_asset(self):
         self.asset = self.init_asset
         
 
+    def build_state(self, state):
+        cur_open = state.iloc[1]['Open']
+        prev_open = state.iloc[0]['Open']
+        prev_high = state.iloc[0]['High']
+        prev_close = state.iloc[0]['Close']
+        prev_low = state.iloc[0]['Low']
+        prev_volume = state.iloc[0]['Volume']
+        if self.agent_type == 1:
+            return torch.FloatTensor([cur_open, prev_open, prev_high, prev_low, prev_close, prev_volume]).to(device)
+
     def take_action(self, state, noise_enable=True, decay_epsilon=True):
         # TODO: select action based on the model output
-        xh, _ = self.rnn(state)
-        action = self.actor(xh)
+
+        state = self.build_state(state).unsqueeze(dim=0)
+        action, _ = self.actor(state)
         
         action = to_numpy(action.cpu()).squeeze(0)
         if noise_enable == True:
             action += self.is_training * max(self.epsilon, 0)*self.random_process.sample()
-            # original
-            # action = softmax(action)
-            # np.clip(action, 1, -1)
-            action = np.tanh(action)
+            action = np.clip(action, a_min=-1, a_max=1)
 
         # print(action)
         if decay_epsilon:
@@ -85,123 +95,80 @@ class ComponentAgent:
 
         # action = np.random.uniform(low=-1.0, high=1)
         invested_asset = self.asset * np.abs(action)
-        self.asset -= invested_asset
 
-        return action, invested_asset
+        return action, invested_asset, state.squeeze().cpu().numpy()
     
-    def learn(self,experiences):
+    def reset_lstm_hidden_state(self, done=True):
+        self.actor.reset_lstm_hidden_state(done)
+    
+    def learn(self, experiences, batch_size):
         # TODO: update the model params
-        t_len = len(experiences)
-        #print(experiences)
-        state0, action, reward, state1, done = experiences
+        if len(experiences) == 0: # not enough samples
+            return
 
-        for t in range(t_len):
+        # update trajectory-wise
+        for t in range(len(experiences) - 1): # iterate over episodes
+            target_cx = Variable(torch.zeros(batch_size, 50)).type(FLOAT).to(device)
+            target_hx = Variable(torch.zeros(batch_size, 50)).type(FLOAT).to(device)
 
-            a_cx = Variable(torch.zeros(self.num_layer, self.batch_size, self.hidden_rnn)).type(FLOAT).cuda()
-            a_hx = Variable(torch.zeros(self.num_layer, self.batch_size, self.hidden_rnn)).type(FLOAT).cuda()
-            
-            # action_bc = np.stack((trajectory.action_bc for trajectory in experiences[t]))
-            state0 = np.stack((trajectory.state0 for trajectory in experiences[t]))          
+            cx = Variable(torch.zeros(batch_size, 50)).type(FLOAT).to(device)
+            hx = Variable(torch.zeros(batch_size, 50)).type(FLOAT).to(device)
+
+            # we first get the data out of the sampled experience
+        
+            state0 = np.stack((trajectory.state0 for trajectory in experiences[t]))
+            # action = np.expand_dims(np.stack((trajectory.action for trajectory in experiences[t])), axis=1)
             action = np.stack((trajectory.action for trajectory in experiences[t]))
-            action = to_tensor(action)
-            reward = np.expand_dims(np.stack((trajectory.reward for trajectory in experiences[t])), axis=1)
-            reward = to_tensor(reward)
+            reward = np.stack((trajectory.reward for trajectory in experiences[t])) / self.reward_scale
+            # reward = np.stack((trajectory.reward for trajectory in experiences[t]))
             state1 = np.stack((trajectory.state0 for trajectory in experiences[t+1]))
-            state0_cuda = to_tensor(state0).cuda()
-            state1_cuda = to_tensor(state1).cuda()
-
-            self.update_critic(state0_cuda, a_hx,a_cx, action, reward, state1_cuda, done,t_len)
-            self.update_actor(state0_cuda, a_hx,a_cx, action,t_len)
-
-        ##### Learning rate Scheduling #####
-        self.rnn_scheduler.step()
-        self.critic_scheduler.step()
-        self.actor_scheduler.step()
 
 
-        self.total_policy_loss = []
-        self.critic_loss = []
-
-
-    def update_critic(self, state0_cuda, a_hx,a_cx, action, reward, state1_cuda, done,t_len):
-        # with torch.no_grad():
-        if self.rnn_mode == 'lstm':
-            xh0, _ = self.rnn(state0_cuda, (a_hx, a_cx))
-            current_q = self.critic([xh0, action.cuda()])
-            
             with torch.no_grad():
-                xh1, _ = self.rnn_target(state0_cuda, (a_hx, a_cx))
-                target_action = self.actor_target(xh1)
-                target_action = target_action.detach()
-                next_q_value = self.critic_target([xh1, target_action])
-            
-            
-        elif self.rnn_mode == 'gru':
-            xh0, _ = self.rnn(state0_cuda, a_hx)
-            current_q = self.critic([xh0, action.cuda()])
-            
-            with torch.no_grad():
-                xh1, _ = self.rnn_target(state1_cuda, a_hx)
-                target_action = self.actor_target(xh1)
-                target_action = target_action.detach()
-                next_q_value = self.critic_target([xh1, target_action])
+                target_action, (target_hx, target_cx) = self.actor_target(to_tensor(state1), (target_hx, target_cx))
+                next_q_value = self.critic_target([
+                    to_tensor(state1),
+                    target_action
+                ])
+
                 
-        target_q = reward + (1-done) * self.discount * next_q_value.cpu()
-        
-        value_loss = 0
-        value_loss = F.smooth_l1_loss(current_q, target_q.cuda())
+                target_q = to_tensor(reward) + self.discount * next_q_value
 
-        value_loss /= t_len # divide by experience length
-        value_loss_total += value_loss 
-
-        self.critic_loss.append(value_loss_total)
-
-        ####### update Critic per step ####### 
-        self.rnn.zero_grad()
-        self.actor.zero_grad()
-        self.critic.zero_grad()
-        value_loss.backward()
-        self.critic_optim.step()
-        self.rnn_optim.step()  
+            # Critic update
+            current_q = self.critic([to_tensor(state0), to_tensor(action)])
 
 
+            # value_loss = criterion(q_batch, target_q_batch)
+            value_loss = F.smooth_l1_loss(current_q, target_q)
+            value_loss /= len(experiences) # divide by trajectory length
 
-    def update_actor(self, state0_cuda, a_hx,a_cx, action,t_len):
-        if self.rnn_mode == 'lstm':
-            xh_b0, _ = self.rnn(state0_cuda, (a_hx, a_cx))
-            behavior_action = self.actor(xh_b0)
-            ### Calculate Actor loss based on Q-value ###
-            actor_loss = -self.critic([xh_b0, behavior_action])
-            policy_loss = actor_loss
-            
-        elif self.rnn_mode == 'gru':
-            xh_b0, _ = self.rnn(state0_cuda, a_hx)
-            behavior_action = self.actor(xh_b0)    
-            ### Calculate Actor loss based on Q-value ###
-            behavior_action = self.actor(xh_b0)
-            actor_loss = -self.critic([xh_b0, behavior_action])
-            policy_loss = actor_loss
-        
-        ################## Actor loss calculation ##################
-        
-        policy_loss /= t_len # divide by experience length
-        policy_loss_total += policy_loss.mean()
+            self.critic_optim.zero_grad()
+            value_loss.backward()
+            self.critic_optim.step()
 
-        self.total_policy_loss.append(policy_loss_total)
+            # Actor update
+            action, (hx, cx) = self.actor(to_tensor(state0), (hx, cx))
+            policy_loss = -self.critic([
+                to_tensor(state0),
+                action
+            ])
+            policy_loss /= len(experiences) # divide by trajectory length
 
-        ####### Update Actor ###########
-        self.rnn.zero_grad()
-        self.actor.zero_grad()
-        self.critic.zero_grad()
-        policy_loss = policy_loss.mean()
-        policy_loss.backward()
-        self.actor_optim.step()
-        self.rnn_optim.step()  
+            # update per trajectory
+
+            self.actor_optim.zero_grad()
+            policy_loss = policy_loss.mean()
+            policy_loss.backward()
+            self.actor_optim.step()
+
+
+        soft_update(self.actor_target, self.actor, self.tau)
+        soft_update(self.critic_target, self.critic, self.tau)
+
 
         
     def soft_update(self):
         ##### Target_Net update #####
-        soft_update(self.rnn_target, self.rnn, self.tau)
         soft_update(self.actor_target, self.actor, self.tau)
         soft_update(self.critic_target, self.critic, self.tau)
 
@@ -212,14 +179,11 @@ class ComponentAgent:
 
 
     def eval(self):
-        self.rnn.eval
         self.actor.eval()
         self.actor_target.eval()
         self.critic.eval()
         self.critic_target.eval()
 
-    def reset_rnn_hidden(self, done=True):
-        self.rnn.reset_hidden_state(done)
 
     # training : reset_noises
     def reset_noise(self):
@@ -227,8 +191,6 @@ class ComponentAgent:
 
     def cuda(self):
         #device = torch.device('cuda:0')
-        self.rnn.cuda()
-        self.rnn_target.cuda()
         self.actor.cuda()
         self.actor_target.cuda()
         self.critic.cuda()
@@ -239,7 +201,7 @@ class ComponentAgent:
         
         model_path = checkpoint_path +'/test_case/' +model_fn
         model = torch.load(model_path)
-        self.rnn.load_state_dict(model['rnn'])
+
         self.actor.load_state_dict(model['actor'])
         self.critic.load_state_dict(model['critic'])
 
@@ -251,7 +213,7 @@ class ComponentAgent:
         if self.is_BClone:
             description = '_BC' +description
         model_path = checkpoint_path +'/' +description
-        torch.save({'rnn': self.rnn.state_dict(),
+        torch.save({
                     'actor': self.actor.state_dict(),
                     'critic': self.critic.state_dict(),
                     # 'actor_target': self.actor_target.state_dict(),

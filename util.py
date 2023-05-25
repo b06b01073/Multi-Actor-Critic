@@ -17,10 +17,12 @@ def prBlack(prt): print("\033[98m {}\033[00m" .format(prt))
 def to_numpy(var):
     return var.cpu().data.numpy() if USE_CUDA else var.data.numpy()
 
-def to_tensor(ndarray, volatile=False, requires_grad=False, dtype=FLOAT):
-    return Variable(
-        torch.from_numpy(ndarray), volatile=volatile, requires_grad=requires_grad
-    ).type(dtype)
+def to_tensor(ndarray, volatile=False, requires_grad=False, dtype=FLOAT, device='cuda'):
+
+    tensor = torch.from_numpy(ndarray)
+    tensor = tensor.to(device)
+
+    return tensor
 
 def soft_update(target, source, tau):
     for target_param, param in zip(target.parameters(), source.parameters()):
