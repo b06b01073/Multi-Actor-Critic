@@ -46,3 +46,11 @@ class OrnsteinUhlenbeckProcess(AnnealedGaussianProcess):
 
     def reset_states(self):
         self.x_prev = self.x0 if self.x0 is not None else np.zeros(self.size)
+
+class GuassianNoise():
+    def __init__(self, mu, sigma):
+        self.mu = mu
+        self.sigma = sigma
+
+    def sample(self, size=1):
+        return np.random.normal(loc=self.mu, scale=self.sigma, size=size)

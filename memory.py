@@ -10,7 +10,7 @@ import numpy as np
 # This is to be understood as a transition: Given `state0`, performing `action`
 # yields `reward` and results in `state1`, which might be `terminal`.
 # Experience = namedtuple('Experience', 'action_bc, state0, action, reward, state1, terminal1')
-Experience = namedtuple('Experience', 'state0, action, reward, state1, terminal1')
+Experience = namedtuple('Experience', 'state0, action, reward, state1, terminal1, hidden_state')
 
 
 def sample_batch_indexes(low, high, size):
@@ -116,6 +116,23 @@ class Memory(object):
                   'ignore_episode_boundaries': self.ignore_episode_boundaries,}
         return config
 
+
+class ReplayBuffer():
+    def __init__(self, capacity):
+        self.buffer = deque(maxlen=capacity)
+
+    def __len__(self):
+        return len(self.buffer)
+
+    def sample(self, batch_size):
+        if batch_size > len(self.buffer):
+            return None
+
+        return random.sample(self.buffer, batch_size)
+
+
+    def append(self, filtered_obs, action, reward, next_filtered_obs, terminated, hidden_state):
+        self.buffer.append(Experience(state0=filtered_obs, action=action, reward=reward, state1=next_filtered_obs, terminal1=terminated, hidden_state=hidden_state))
 
 ### 雖然有繼承Memory，但好像沒有Memory也可以運行耶？ ####
 class EpisodicMemory(Memory):

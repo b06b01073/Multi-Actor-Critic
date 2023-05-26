@@ -4,6 +4,7 @@ from collections import defaultdict
 import math
 from datetime import datetime
 import os
+import numpy as np
 
 class StockMarket:
     '''A class to represent the stock market 
@@ -102,7 +103,8 @@ class StockMarket:
 
         assert not self.terminated, 'The environment has terminated(passed the last trade day), please call the reset method and start the next episode'
         assert action >= -1.0 and action <= 1.0, f'action out of range(should be in [-1, 1] but recieved {action})'
-            
+        assert invested_asset > 0
+
         # calcualte reward
         reward, earning = self.__reward_function(action, invested_asset)
 
@@ -128,9 +130,13 @@ class StockMarket:
             (i)reward according to the reward function specified in spec
             (ii)the agent's earning
         '''
+        assert invested_asset > 0
+
         cur_day_data = self.dataset.iloc[self.cur_trade_day]
         close_price, open_price = cur_day_data['Close'], cur_day_data['Open']
-        increase_rate = (close_price - open_price) / open_price
+        increase = (close_price - open_price) > 0
+
+        
         B = 0
         if action > 0: 
             B = 1
@@ -143,7 +149,8 @@ class StockMarket:
         final_price = Lot * price_change
         earning = final_price * 50 * B
         TransactionFee = self.FeeCalculation(Lot)
-        return increase_rate * 10000 * action, earning - TransactionFee
+
+        return np.clip(float(cur_day_data['Price change Ratio'][:-1]) * action, a_min=-1, a_max=1), earning - TransactionFee
 
 
     def __state_transition(self):
@@ -203,7 +210,7 @@ class StockMarket:
         output(float): Lot(s) of future (only purchase the Lot of Future that the Cost is less than invested_asset)
         '''
         future_cost = 23000
-        return invested_asset / future_cost
+        return invested_asset // future_cost
     
     def FeeCalculation(self,Lot):
         '''

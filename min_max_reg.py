@@ -2,7 +2,7 @@ from argparse import ArgumentParser
 import pandas as pd
 
 def main(args):
-    normalized_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
+    normalized_cols = ['Open', 'High', 'Low', 'Close', 'Volume', 'MA5', 'MA10']
     df = pd.read_csv(args.read_path)
     normalized_df = df
 

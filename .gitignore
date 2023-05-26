@@ -2,3 +2,4 @@ dataset/*
 img/*
 checker.txt
 __pycache__
+oracle.py
