@@ -61,7 +61,6 @@ class ComponentAgent:
         self.critic_loss = 0
 
 
-        self.reward_scale = args.reward_scale
 
     def reset_asset(self):
         self.asset = self.init_asset
@@ -103,25 +102,25 @@ class ComponentAgent:
     
     def learn(self, experiences, batch_size):
         # TODO: update the model params
-        if len(experiences) == 0: # not enough samples
+        if experiences is None: # not enough samples
             return
 
         # update trajectory-wise
         for t in range(len(experiences) - 1): # iterate over episodes
-            target_cx = Variable(torch.zeros(batch_size, 50)).type(FLOAT).to(device)
-            target_hx = Variable(torch.zeros(batch_size, 50)).type(FLOAT).to(device)
+            target_cx = Variable(torch.zeros(batch_size, 120)).type(FLOAT).to(device)
+            target_hx = Variable(torch.zeros(batch_size, 120)).type(FLOAT).to(device)
 
-            cx = Variable(torch.zeros(batch_size, 50)).type(FLOAT).to(device)
-            hx = Variable(torch.zeros(batch_size, 50)).type(FLOAT).to(device)
+            cx = Variable(torch.zeros(batch_size, 120)).type(FLOAT).to(device)
+            hx = Variable(torch.zeros(batch_size, 120)).type(FLOAT).to(device)
 
             # we first get the data out of the sampled experience
         
-            state0 = np.stack((trajectory.state0 for trajectory in experiences[t]))
+            state0 = np.stack([trajectory.state0 for trajectory in experiences[t]])
             # action = np.expand_dims(np.stack((trajectory.action for trajectory in experiences[t])), axis=1)
-            action = np.stack((trajectory.action for trajectory in experiences[t]))
-            reward = np.stack((trajectory.reward for trajectory in experiences[t])) / self.reward_scale
+            action = np.stack([trajectory.action for trajectory in experiences[t]])
+            reward = np.stack([trajectory.reward for trajectory in experiences[t]]) 
             # reward = np.stack((trajectory.reward for trajectory in experiences[t]))
-            state1 = np.stack((trajectory.state0 for trajectory in experiences[t+1]))
+            state1 = np.stack([trajectory.state0 for trajectory in experiences[t+1]])
 
 
             with torch.no_grad():

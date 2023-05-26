@@ -8,7 +8,7 @@ def main(args):
 
     for col in df:
         if col in normalized_cols:
-            normalized_df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
+            normalized_df[f'norm_{col}'] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
 
     normalized_df.to_csv(args.write_path)
     

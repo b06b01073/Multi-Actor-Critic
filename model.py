@@ -15,16 +15,16 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 class Actor(nn.Module):
     def __init__(self, nb_states, nb_actions=1, init_w=3e-3):
         super(Actor, self).__init__()
-        self.fc1 = nn.Linear(nb_states, 20)
-        self.fc2 = nn.Linear(20, 50)
-        self.lstm = nn.LSTMCell(50, 50)
-        self.fc3 = nn.Linear(50, nb_actions)
+        self.fc1 = nn.Linear(nb_states, 400)
+        self.fc2 = nn.Linear(400, 120)
+        self.lstm = nn.LSTMCell(120, 120)
+        self.fc3 = nn.Linear(120, nb_actions)
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
         self.init_weights(init_w)
 
-        self.cx = Variable(torch.zeros(1, 50)).type(FLOAT)
-        self.hx = Variable(torch.zeros(1, 50)).type(FLOAT)
+        self.cx = Variable(torch.zeros(1, 120)).type(FLOAT)
+        self.hx = Variable(torch.zeros(1, 120)).type(FLOAT)
     
     def init_weights(self, init_w):
         self.fc1.weight.data = fanin_init(self.fc1.weight.data.size())
@@ -33,8 +33,8 @@ class Actor(nn.Module):
 
     def reset_lstm_hidden_state(self, done=True):
         if done == True:
-            self.cx = Variable(torch.zeros(1, 50)).type(FLOAT).to(device)
-            self.hx = Variable(torch.zeros(1, 50)).type(FLOAT).to(device)
+            self.cx = Variable(torch.zeros(1, 120)).type(FLOAT).to(device)
+            self.hx = Variable(torch.zeros(1, 120)).type(FLOAT).to(device)
         else:
             self.cx = Variable(self.cx.data).type(FLOAT).to(device)
             self.hx = Variable(self.hx.data).type(FLOAT).to(device)
@@ -58,9 +58,9 @@ class Actor(nn.Module):
 class Critic(nn.Module):
     def __init__(self, nb_states, nb_actions=1, init_w=3e-3):
         super(Critic, self).__init__()
-        self.fc1 = nn.Linear(nb_states, 20)
-        self.fc2 = nn.Linear(20 + nb_actions, 50)
-        self.fc3 = nn.Linear(50, 1)
+        self.fc1 = nn.Linear(nb_states, 120)
+        self.fc2 = nn.Linear(120 + nb_actions, 120)
+        self.fc3 = nn.Linear(120, 1)
         self.relu = nn.ReLU()
         self.init_weights(init_w)
     

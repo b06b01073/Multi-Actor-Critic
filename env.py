@@ -143,7 +143,7 @@ class StockMarket:
         final_price = Lot * price_change
         earning = final_price * 50 * B
         TransactionFee = self.FeeCalculation(Lot)
-        return increase_rate * 100 * action, earning - TransactionFee
+        return increase_rate * 10000 * action, earning - TransactionFee
 
 
     def __state_transition(self):
@@ -224,6 +224,13 @@ class StockMarket:
         else:
             TotalCost=FutureTax+Fee*Lot*2
         return math.ceil(TotalCost)
+    
+
+    def __len__(self):
+        '''
+        return the len of the dataset
+        '''
+        return self.dataset.shape[0]
     
 def make(csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax, data_interval):
     ''' create the stock market environment

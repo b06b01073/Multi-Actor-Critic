@@ -1,9 +1,12 @@
 from argparse import ArgumentParser
 import matplotlib.pyplot as plt 
+import numpy as np
+from tqdm import tqdm
 
 from component_agent import ComponentAgent
 import env
 from memory import EpisodicMemory
+
 
 def train(args):
     agent = ComponentAgent(args)
@@ -23,12 +26,14 @@ def train(args):
         total_reward = 0
 
 
-        while True:
+        for _ in tqdm(range(len(market)), desc=f'epoch {i}'):
+
             action, invested_asset, filtered_obs = agent.take_action(obs)
 
-            # action, invested_asset = 1, 50000
+
 
             next_obs, reward, terminated, earning, _ = market.step(action, invested_asset)
+            # print(reward)
 
             # memory.append(action_bc, state0, action, reward, done)
             memory.append(filtered_obs, action, reward, terminated)
@@ -38,8 +43,7 @@ def train(args):
             agent.update_asset(earning)
 
             experiences = memory.sample(args.batch_size)
-            if experiences is not None:
-                agent.learn(experiences, args.batch_size)
+            agent.learn(experiences, args.batch_size)
 
             agent.soft_update()
 
@@ -76,9 +80,9 @@ if __name__ == '__main__':
     parser.add_argument('--data_interval', type=int, default=2)
     
     ##### Learning Setting #####
-    parser.add_argument('--r_rate', default=0.0001, type=float, help='gru layer learning rate')  
-    parser.add_argument('--c_rate', default=0.0001, type=float, help='critic net learning rate') 
-    parser.add_argument('--a_rate', default=0.0001, type=float, help='policy net learning rate (only for DDPG)')
+    parser.add_argument('--r_rate', default=0.001, type=float, help='gru layer learning rate')  
+    parser.add_argument('--c_rate', default=0.001, type=float, help='critic net learning rate') 
+    parser.add_argument('--a_rate', default=0.001, type=float, help='policy net learning rate (only for DDPG)')
     parser.add_argument('--beta1', default=0.3, type=float, help='mometum beta1 for Adam optimizer')
     parser.add_argument('--beta2', default=0.9, type=float, help='mometum beta2 for Adam optimizer')
     parser.add_argument('--sch_step_size', default=16*150, type=float, help='LR_scheduler: step_size')
@@ -86,17 +90,17 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', default=64, type=int, help='minibatch size')
     
     ##### RL Setting #####
-    parser.add_argument('--warmup', default=100, type=int, help='only filling the replay memory without training')
-    parser.add_argument('--discount', default=0.95, type=float, help='future rewards discount rate')
+    parser.add_argument('--warmup', default=1600, type=int, help='only filling the replay memory without training')
+    parser.add_argument('--discount', default=0.99, type=float, help='future rewards discount rate')
     parser.add_argument('--a_update_freq', default=3, type=int, help='actor update frequecy (per N steps)')
     parser.add_argument('--Reward_max_clip', default=15., type=float, help='max DSR reward for clipping')
-    parser.add_argument('--tau', default=0.002, type=float, help='moving average for target network')
+    parser.add_argument('--tau', default=0.01, type=float, help='moving average for target network')
     ##### original Replay Buffer Setting #####
     parser.add_argument('--rmsize', default=12000, type=int, help='memory size')
     parser.add_argument('--window_length', default=1, type=int, help='')  
     ##### Exploration Setting #####
     parser.add_argument('--ou_theta', default=0.18, type=float, help='noise theta of Ornstein Uhlenbeck Process')
-    parser.add_argument('--ou_sigma', default=0.3, type=float, help='noise sigma of Ornstein Uhlenbeck Process') 
+    parser.add_argument('--ou_sigma', default=0.15, type=float, help='noise sigma of Ornstein Uhlenbeck Process') 
     parser.add_argument('--ou_mu', default=0.0, type=float, help='noise mu of Ornstein Uhlenbeck Process') 
     parser.add_argument('--epsilon_decay', default=100000, type=int, help='linear decay of exploration policy')
     
@@ -129,7 +133,6 @@ if __name__ == '__main__':
     parser.add_argument('--FutureFee', '-FF', type=float, default=12)
     parser.add_argument('--FutureDfee', '-FDF', type=float, default=8)
 
-    parser.add_argument('--reward_scale', type=float, default=10000)
 
     
     args = parser.parse_args()
