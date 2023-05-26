@@ -17,7 +17,6 @@ class Actor(nn.Module):
         super(Actor, self).__init__()
         self.fc1 = nn.Linear(nb_states, 400)
         self.fc2 = nn.Linear(400, 120)
-        self.lstm = nn.LSTMCell(120, 120)
         self.fc3 = nn.Linear(120, nb_actions)
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
@@ -42,18 +41,9 @@ class Actor(nn.Module):
     def forward(self, x, hidden_states=None):
         x = self.relu(self.fc1(x))
         x = self.relu(self.fc2(x))
-
-        if hidden_states == None:
-            hx, cx = self.lstm(x, (self.hx.to(device), self.cx.to(device)))
-            self.hx = hx
-            self.cx = cx
-        else:
-            hx, cx = self.lstm(x, hidden_states)
-
-        x = hx
         x = self.fc3(x)
         x = self.tanh(x)
-        return x, (hx, cx)
+        return x
 
 class Critic(nn.Module):
     def __init__(self, nb_states, nb_actions=1, init_w=3e-3):

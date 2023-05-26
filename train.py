@@ -39,18 +39,18 @@ def train(args):
             memory.append(filtered_obs, action, reward, terminated)
             obs = next_obs
 
+
             earnings.append(earning - args.asset)
             agent.update_asset(earning)
 
             experiences = memory.sample(args.batch_size)
             agent.learn(experiences, args.batch_size)
 
-            agent.soft_update()
 
             # print(action, agent.asset)
 
             total_reward += earning
-            if terminated:
+            if terminated or agent.asset < 0:
                 break
         print(f'epoch: {i}, total_reward: {total_reward}, asset: {agent.asset}')
     
@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
     ##### Model Setting #####
     parser.add_argument('--rnn_mode', default='lstm', type=str, help='RNN mode: LSTM/GRU')
-    parser.add_argument('--input_size', default=6, type=int, help='num of features for input state')
+    parser.add_argument('--input_size', default=45, type=int, help='num of features for input state')
     parser.add_argument('--seq_len', default=15, type=int, help='sequence length of input state')
     parser.add_argument('--num_rnn_layer', default=2, type=int, help='num of rnn layer')
     parser.add_argument('--hidden_rnn', default=128, type=int, help='hidden num of lstm layer')
@@ -77,7 +77,7 @@ if __name__ == '__main__':
     parser.add_argument('--epoch', default=300, type=int) 
     parser.add_argument('--agent_type', type=int, default=1)
     parser.add_argument('--device', type=str, default='cuda')
-    parser.add_argument('--data_interval', type=int, default=2)
+    parser.add_argument('--data_interval', type=int, default=10)
     
     ##### Learning Setting #####
     parser.add_argument('--r_rate', default=0.001, type=float, help='gru layer learning rate')  

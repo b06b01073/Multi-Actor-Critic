@@ -67,30 +67,31 @@ class ComponentAgent:
         
 
     def build_state(self, state):
-        cur_open = state.iloc[1]['Open']
-        prev_open = state.iloc[0]['Open']
-        prev_high = state.iloc[0]['High']
-        prev_close = state.iloc[0]['Close']
-        prev_low = state.iloc[0]['Low']
-        prev_volume = state.iloc[0]['Volume']
+        prev_opens = [state.iloc[i]['Open'] for i in range(self.data_interval - 1)]
+        prev_highs = [state.iloc[i]['High'] for i in range(self.data_interval - 1)]
+        prev_closed = [state.iloc[i]['Close'] for i in range(self.data_interval - 1)]
+        prev_lows = [state.iloc[i]['Low'] for i in range(self.data_interval - 1)]
+        prev_volumes = [state.iloc[i]['Volume'] for i in range(self.data_interval - 1)]
         if self.agent_type == 1:
-            return torch.FloatTensor([cur_open, prev_open, prev_high, prev_low, prev_close, prev_volume]).to(device)
+            concat_data = prev_opens + prev_closed + prev_highs + prev_lows + prev_volumes
+            return torch.FloatTensor(concat_data).to(device)
 
-    def take_action(self, state, noise_enable=True, decay_epsilon=True):
+    def take_action(self, state, noise_enable=True):
         # TODO: select action based on the model output
 
-        state = self.build_state(state).unsqueeze(dim=0)
-        action, _ = self.actor(state)
+        state = self.build_state(state)
+        action = self.actor(state)
+
+        action = to_numpy(action.cpu())
         
-        action = to_numpy(action.cpu()).squeeze(0)
+
+        
+
         if noise_enable == True:
-            action += self.is_training * max(self.epsilon, 0)*self.random_process.sample()
+            noise = self.random_process.sample()
+            action += noise
             action = np.clip(action, a_min=-1, a_max=1)
 
-        # print(action)
-        if decay_epsilon:
-            self.epsilon -= self.depsilon
-        # return action, self.epsilon
 
         # action = np.random.uniform(low=-1.0, high=1)
         invested_asset = self.asset * np.abs(action)
@@ -107,12 +108,6 @@ class ComponentAgent:
 
         # update trajectory-wise
         for t in range(len(experiences) - 1): # iterate over episodes
-            target_cx = Variable(torch.zeros(batch_size, 120)).type(FLOAT).to(device)
-            target_hx = Variable(torch.zeros(batch_size, 120)).type(FLOAT).to(device)
-
-            cx = Variable(torch.zeros(batch_size, 120)).type(FLOAT).to(device)
-            hx = Variable(torch.zeros(batch_size, 120)).type(FLOAT).to(device)
-
             # we first get the data out of the sampled experience
         
             state0 = np.stack([trajectory.state0 for trajectory in experiences[t]])
@@ -124,7 +119,7 @@ class ComponentAgent:
 
 
             with torch.no_grad():
-                target_action, (target_hx, target_cx) = self.actor_target(to_tensor(state1), (target_hx, target_cx))
+                target_action = self.actor_target(to_tensor(state1))
                 next_q_value = self.critic_target([
                     to_tensor(state1),
                     target_action
@@ -146,7 +141,7 @@ class ComponentAgent:
             self.critic_optim.step()
 
             # Actor update
-            action, (hx, cx) = self.actor(to_tensor(state0), (hx, cx))
+            action = self.actor(to_tensor(state0))
             policy_loss = -self.critic([
                 to_tensor(state0),
                 action
