@@ -18,6 +18,7 @@ def train(args):
 
     get_upperbound(market, args.asset)
 
+    returns = []
 
     for i in range(args.epoch):
         obs, _ = market.reset()
@@ -78,7 +79,13 @@ def train(args):
 
             
         agent.increase_action_freedom()
-        print(f'epoch: {i}, total_reward: {total_reward}, asset: {agent.asset}, return: {agent.asset / agent.init_asset}, action_freedom: {agent.action_freedom}')
+        agent.decrease_noise_weight()
+        returns.append(agent.asset / agent.init_asset)
+        print(f'epoch: {i}, total_reward: {total_reward}, asset: {agent.asset}, return: {agent.asset / agent.init_asset}, action_freedom: {agent.action_freedom}, noise_weight: {agent.noise_weight}')
+
+    plt.clf()
+    plt.plot(returns)
+    plt.savefig('img/returns.jpg')
 
 def get_upperbound(market, asset):
     total_reward = 0 
@@ -160,7 +167,7 @@ if __name__ == '__main__':
     parser.add_argument('--discount', default=0.99, type=float, help='future rewards discount rate')
     parser.add_argument('--a_update_freq', default=3, type=int, help='actor update frequecy (per N steps)')
     parser.add_argument('--Reward_max_clip', default=15., type=float, help='max DSR reward for clipping')
-    parser.add_argument('--tau', default=0.01, type=float, help='moving average for target network')
+    parser.add_argument('--tau', default=0.001, type=float, help='moving average for target network')
     ##### original Replay Buffer Setting #####
     parser.add_argument('--rmsize', default=100000, type=int, help='memory size')
     parser.add_argument('--window_length', default=1, type=int, help='')  

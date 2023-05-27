@@ -44,7 +44,7 @@ class ComponentAgent:
         self.rnn_mode = args.rnn_mode
         self.tau = args.tau
         self.discount = args.discount
-        self.random_process = GuassianNoise(mu=0, sigma=0.3)
+        self.random_process = GuassianNoise(mu=0, sigma=0.5)
 
 
         ### Optimizer and LR_scheduler ###
@@ -62,6 +62,8 @@ class ComponentAgent:
         self.delay_update = 0
 
         self.action_freedom = 0.1
+
+        self.noise_weight = 1
 
     def reset_asset(self):
         self.asset = self.init_asset
@@ -83,8 +85,12 @@ class ComponentAgent:
             return torch.FloatTensor(concat_data)
 
     def increase_action_freedom(self):
-        self.action_freedom += 0.05
+        self.action_freedom += 0.02
         self.action_freedom = min(self.action_freedom, 1)
+
+    def decrease_noise_weight(self):
+        self.noise_weight -= 0.02
+        self.noise_weight = max(self.noise_weight, 0.1)
 
     def take_action(self, state, hidden_state,noise_enable=True):
         # TODO: select action based on the model output
@@ -100,11 +106,12 @@ class ComponentAgent:
 
         if noise_enable == True:
             noise = self.random_process.sample()
-            action += noise
+            action += noise * self.noise_weight
 
 
         # action = np.random.uniform(low=-1.0, high=1)
         action = np.clip(action, a_min=-1, a_max=1) * self.action_freedom
+        # action = np.clip(action, a_min=-1, a_max=1) * 0.8 # it seems like when action_freedom = 1, the model breaks easily
         invested_asset = self.asset * np.abs(action)
 
         return action, invested_asset, state.squeeze().cpu().numpy(), hidden_state
