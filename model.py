@@ -67,7 +67,8 @@ class RNN(nn.Module):
 class Actor(nn.Module):
     def __init__(self, args):
         super(Actor, self).__init__()
-        nb_actions = 2
+        # 2 change to 1
+        nb_actions = 1
         init_w = args.init_w
         self.hidden_rnn = args.hidden_rnn
         self.hidden_fc1 = args.hidden_fc1
@@ -102,7 +103,7 @@ class Actor(nn.Module):
 class Critic(nn.Module):
     def __init__(self, args):
         super(Critic, self).__init__()
-        nb_actions = 2
+        nb_actions = 1
         init_w = args.init_w
         self.input_size = args.input_size
         self.seq_len = args.seq_len

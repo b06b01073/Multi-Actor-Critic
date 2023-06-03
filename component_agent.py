@@ -16,7 +16,7 @@ class ComponentAgent:
         # TODO: build the nn model
         # self.net = None
 
-        nb_actions = 2
+        nb_actions = 1
         self.date = args.date
         ##### Create RNN Layer #####
         self.rnn = RNN(args)
@@ -59,6 +59,24 @@ class ComponentAgent:
         ### initialized values 
         self.total_policy_loss = 0
         self.critic_loss = 0
+        self.BC_loss = 0
+        self.BC_loss_Qf = 0
+
+
+
+        ##### Behavior Cloning Setting #####
+        self.is_BClone = args.is_BClone
+        self.is_Qfilt = args.is_Qfilt
+        self.use_Qfilt = args.use_Qfilt
+        if self.is_BClone:
+            self.lambda_Policy = args.lambda_Policy
+            self.lambda_BC = 1-self.lambda_Policy
+        else:
+            self.lambda_Policy = 1
+            self.lambda_BC = 1-self.lambda_Policy
+        # self.lambda_BC = args.lambda_BC
+        self.BC_loss_func = nn.MSELoss(reduce=False)
+        # self.BC_loss_func = nn.BCELoss(reduce=False)
 
         
 
@@ -89,14 +107,15 @@ class ComponentAgent:
     def learn(self,experiences):
         # TODO: update the model params
         t_len = len(experiences)
-        action_bc, state0, action, reward, done = experiences
+        # action_bc, state0, action, reward, done = experiences\
+        action_bc, state0, action, reward,state1, done = experiences
 
         for t in range(t_len):
 
             a_cx = Variable(torch.zeros(self.num_layer, self.batch_size, self.hidden_rnn)).type(FLOAT).cuda()
             a_hx = Variable(torch.zeros(self.num_layer, self.batch_size, self.hidden_rnn)).type(FLOAT).cuda()
             
-            # action_bc = np.stack((trajectory.action_bc for trajectory in experiences[t]))
+            action_bc = np.stack((trajectory.action_bc for trajectory in experiences[t]))
             state0 = np.stack((trajectory.state0 for trajectory in experiences[t]))          
             action = np.stack((trajectory.action for trajectory in experiences[t]))
             action = to_tensor(action)
@@ -107,12 +126,16 @@ class ComponentAgent:
             state1_cuda = to_tensor(state1).cuda()
 
             self.update_critic(state0_cuda, a_hx,a_cx, action, reward, state1_cuda, done,t_len)
-            self.update_actor(state0_cuda, a_hx,a_cx, action,t_len)
+            self.update_actor(action_bc,state0_cuda, a_hx,a_cx, action,t_len)
 
         ##### Learning rate Scheduling #####
         self.rnn_scheduler.step()
         self.critic_scheduler.step()
         self.actor_scheduler.step()
+
+        ##### Apply Q-filter to BC loss #####
+        # if (episode-1) >= (self.warmup+self.use_Qfilt):
+        #     self.is_Qfilt=True
 
 
         self.total_policy_loss = []
@@ -162,23 +185,85 @@ class ComponentAgent:
 
 
 
-    def update_actor(self, state0_cuda, a_hx,a_cx, action,t_len):
+    def update_actor(self, action_bc,state0_cuda, a_hx,a_cx, action,t_len):
         if self.rnn_mode == 'lstm':
             xh_b0, _ = self.rnn(state0_cuda, (a_hx, a_cx))
             behavior_action = self.actor(xh_b0)
+
+            ### Behavior Cloning : Estimate actor action ###
+            q_action = self.agent.critic([xh_b0, action.cuda()])
+
             ### Calculate Actor loss based on Q-value ###
             actor_loss = -self.critic([xh_b0, behavior_action])
-            policy_loss = actor_loss
+
+            ##### Behavior Cloning Loss #####
+            if self.is_BClone:
+                ### Estimate prophetic action ###
+                q_action_bc = self.agent.critic([xh_b0, action_bc.cuda()])
+                
+                ### Q_filter & BC_loss ###
+                BC_loss = self.BC_loss_func(behavior_action, action_bc.cuda())
+                BC_loss = torch.sum(BC_loss,dim=1).unsqueeze(1)
+                
+                Q_filter = torch.gt(q_action_bc, q_action)
+                BC_loss_Qf = BC_loss * (Q_filter.detach())
+                if self.is_Qfilt:
+                    ### modified Policy loss ###
+                    policy_loss = (self.lambda_Policy*actor_loss) + (self.lambda_BC*BC_loss_Qf) 
+                else:
+                    ### modified Policy loss ###
+                    policy_loss = (self.lambda_Policy*actor_loss) + (self.lambda_BC*BC_loss)
+                    
+            else:  ### Original Policy loss ###
+                policy_loss = actor_loss
+
             
         elif self.rnn_mode == 'gru':
             xh_b0, _ = self.rnn(state0_cuda, a_hx)
             behavior_action = self.actor(xh_b0)    
+
+
+            ### Behavior Cloning : Estimate actor action ###
+            q_action = self.agent.critic([xh_b0, action.cuda()]) 
+
             ### Calculate Actor loss based on Q-value ###
             behavior_action = self.actor(xh_b0)
             actor_loss = -self.critic([xh_b0, behavior_action])
-            policy_loss = actor_loss
+         
+            ##### Behavior Cloning Loss #####
+            if self.is_BClone:
+                ### Estimate prophetic action ###
+                q_action_bc = self.agent.critic([xh_b0, action_bc.cuda()])
+                
+                ### Q_filter & BC_loss ###
+                BC_loss = self.BC_loss_func(behavior_action, action_bc.cuda())
+                BC_loss = torch.sum(BC_loss,dim=1).unsqueeze(1)
+                
+                Q_filter = torch.gt(q_action_bc, q_action)
+                BC_loss_Qf = BC_loss * (Q_filter.detach())
+                if self.is_Qfilt:
+                    ### modified Policy loss ###
+                    policy_loss = (self.lambda_Policy*actor_loss) + (self.lambda_BC*BC_loss_Qf)
+                else:
+                    ### modified Policy loss ###
+                    policy_loss = (self.lambda_Policy*actor_loss) + (self.lambda_BC*BC_loss)
+                    
+            else:  ### Original Policy loss ###
+                policy_loss = actor_loss
         
         ################## Actor loss calculation ##################
+
+        if self.is_BClone:
+            BC_loss /= t_len
+            BC_loss_total +=  BC_loss.mean()  #BC loss
+            BC_loss_Qf  /= t_len
+            BC_loss_Qf_total += BC_loss_Qf.mean()
+            actor_loss /= t_len
+            actor_loss_total += actor_loss.mean()   #actor loss
+        else:
+            BC_loss_total = torch.zeros(1)
+            BC_loss_Qf_total = torch.zeros(1)
+            actor_loss_total = torch.zeros(1)
         
         policy_loss /= t_len # divide by experience length
         policy_loss_total += policy_loss.mean()
@@ -193,6 +278,12 @@ class ComponentAgent:
         policy_loss.backward()
         self.actor_optim.step()
         self.rnn_optim.step()  
+
+
+        self.actor_loss = actor_loss_total.item()
+        self.BC_loss = BC_loss_total.item()
+        self.BC_loss_Qf = BC_loss_Qf_total.item()
+
 
         
     def soft_update(self):

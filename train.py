@@ -21,10 +21,10 @@ def train(args):
 
         for _ in range(args.max_iter):
             action, invested_asset = agent.take_action(obs)
-            next_obs, earning, terminated, _ = market.step(action, invested_asset)
+            action_bc, next_obs, earning, terminated, _ = market.step(action, invested_asset)
 
             # memory.append(action_bc, state0, action, reward, done)
-            memory.append(next_obs, action, earning,terminated)
+            memory.append(action_bc, next_obs, action, earning,terminated)
             obs = next_obs
             experiences = memory.sample(args.batch_size)
 
@@ -111,6 +111,15 @@ if __name__ == '__main__':
     parser.add_argument('--start', '-s', type=str, default='2010-01-04')
     parser.add_argument('--end', '-e', type=str, default='2023-12-30')
     parser.add_argument('--asset', '-a', type=float, default=1000000)
+
+
+    ##### Behavior Cloning #####
+    parser.add_argument('--is_BClone', default=True, action='store_true', help='conduct behavior cloning or not')
+    parser.add_argument('--is_Qfilt', default=True, action='store_true', help='conduct Q-filter or not')
+    parser.add_argument('--use_Qfilt', default=100, type=int, help='set the episode after warmup to use Q-filter')
+    parser.add_argument('--lambda_Policy', default=0.7, type=int, help='The weight for actor loss')
+    # parser.add_argument('--lambda_BC', default=0.5, type=int, help='The weight for BC loss after Q-filter, default is equal to (1-lambda_Policy)')
+ 
 
     
     args = parser.parse_args()
