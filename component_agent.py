@@ -57,6 +57,9 @@ class ComponentAgent:
         ### initialized values 
         self.total_policy_loss = 0
         self.critic_loss = 0
+        self.BC_loss = 0
+        self.BC_loss_Qf = 0
+
 
 
         self.delay_update = 0
@@ -64,6 +67,20 @@ class ComponentAgent:
         self.action_freedom = 0.1
 
         self.noise_weight = 1
+
+        ##### Behavior Cloning Setting #####
+        self.is_BClone = args.is_BClone
+        self.is_Qfilt = args.is_Qfilt
+        self.use_Qfilt = args.use_Qfilt
+        if self.is_BClone:
+            self.lambda_Policy = args.lambda_Policy
+            self.lambda_BC = 1-self.lambda_Policy
+        else:
+            self.lambda_Policy = 1
+            self.lambda_BC = 1-self.lambda_Policy
+        # self.lambda_BC = args.lambda_BC
+        self.BC_loss_func = nn.MSELoss(reduce=False)
+        # self.BC_loss_func = nn.BCELoss(reduce=False)
 
     def reset_asset(self):
         self.asset = self.init_asset
@@ -127,7 +144,7 @@ class ComponentAgent:
         # update trajectory-wise
         
 
-        
+        action_bc = np.stack([data.action_bc for data in experiences])
         hidden_state = np.stack([data.hidden_state for data in experiences]).astype('float32')
         state0 = np.stack([data.state0 for data in experiences])
         # action = np.expand_dims(np.stack((data.action for data in experiences)), axis=1)
@@ -169,6 +186,33 @@ class ComponentAgent:
             to_tensor(state0),
             action
         ])
+
+
+        ### Behavior Cloning : Estimate actor action ###
+        # q_action = self.critic([xh_b0, action.cuda()])
+        # => current_q
+        ##### Behavior Cloning Loss #####
+        if self.is_BClone:
+            ### Estimate prophetic action ###
+            q_action_bc = self.critic([to_tensor(state0), to_tensor(action_bc)])
+            
+            ### Q_filter & BC_loss ###
+            BC_loss = self.BC_loss_func(action, action_bc.cuda())
+            BC_loss = torch.sum(BC_loss,dim=1).unsqueeze(1)
+            
+            Q_filter = torch.gt(q_action_bc, current_q)
+            BC_loss_Qf = BC_loss * (Q_filter.detach())
+            if self.is_Qfilt:
+                ### modified Policy loss ###
+                policy_loss = (self.lambda_Policy*policy_loss) + (self.lambda_BC*BC_loss_Qf) 
+            else:
+                ### modified Policy loss ###
+                policy_loss = (self.lambda_Policy*policy_loss) + (self.lambda_BC*BC_loss)
+                
+        else:  ### Original Policy loss ###
+            policy_loss = policy_loss
+
+        
 
         # update per trajectory
 
