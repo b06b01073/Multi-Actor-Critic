@@ -40,7 +40,7 @@ class Actor(nn.Module):
         x = self.relu(self.fc1(x))
         x = self.relu(self.fc2(x))
         hidden_state = self.rnn(x, hidden_state)
-        x = self.tanh(self.fc3(x))
+        x = self.tanh(self.fc3(hidden_state))
         return x, hidden_state
 
 class Critic(nn.Module):

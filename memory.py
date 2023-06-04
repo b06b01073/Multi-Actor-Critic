@@ -131,8 +131,8 @@ class ReplayBuffer():
         return random.sample(self.buffer, batch_size)
 
 
-    def append(self, filtered_obs, action, reward, next_filtered_obs, terminated, hidden_state):
-        self.buffer.append(Experience(state0=filtered_obs, action=action, reward=reward, state1=next_filtered_obs, terminal1=terminated, hidden_state=hidden_state))
+    def append(self, action_bc,filtered_obs, action, reward, next_filtered_obs, terminated, hidden_state):
+        self.buffer.append(Experience(action_bc = action_bc,state0=filtered_obs, action=action, reward=reward, state1=next_filtered_obs, terminal1=terminated, hidden_state=hidden_state))
 
 ### 雖然有繼承Memory，但好像沒有Memory也可以運行耶？ ####
 class EpisodicMemory(Memory):

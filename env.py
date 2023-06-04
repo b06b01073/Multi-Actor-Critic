@@ -51,6 +51,10 @@ class StockMarket:
         self.FutureDFee=FutureDFee
         self.FutureTax=FutureTax
 
+        # Behavior Cloning
+        file = 'TX_data/prophetic.csv'
+        self.df=pd.read_csv(file,parse_dates=True,index_col=0)
+
     def __get_dataset(self, start, end):
         ''' get the dataset and return the first state of the environment
 
@@ -105,6 +109,18 @@ class StockMarket:
         assert action >= -1.0 and action <= 1.0, f'action out of range(should be in [-1, 1] but recieved {action})'
         assert invested_asset > 0
 
+        # Behavior Cloning
+        if self.is_BClone == True:
+            action_bc = self.df['phtAction'][self.cur_trade_day]
+            # if action_bc==0 and self.is_PER_replay:
+            #     action_bc=random.choice([1,-1]) #radnomly choose an action
+            # if action_bc==-1:
+            #     action_bc = np.array([1., 0.])
+            # elif action_bc==1:
+            #     action_bc = np.array([0., 1.])
+        else:
+            action_bc = None
+
         # calcualte reward
         reward, earning = self.__reward_function(action, invested_asset)
 
@@ -117,7 +133,7 @@ class StockMarket:
         # update info
         info = None if self.terminated else self.__set_info()
 
-        return self.cur_state, reward, self.terminated, earning, info
+        return action_bc, self.cur_state, reward, self.terminated, earning, info
 
     def __reward_function(self, action, invested_asset):
         '''calculate the reward based on the given action and the stock price increase rate

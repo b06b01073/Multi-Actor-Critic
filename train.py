@@ -42,7 +42,7 @@ def train(args):
 
 
 
-            next_obs, reward, terminated, earning, _ = market.step(action, invested_asset)
+            action_bc, next_obs, reward, terminated, earning, _ = market.step(action, invested_asset)
             total_reward += reward
             # print(reward)
 
@@ -54,7 +54,7 @@ def train(args):
 
 
             if next_filtered_obs is not None:
-                memory.append(filtered_obs, action, reward, next_filtered_obs, terminated, hidden_state)
+                memory.append(action_bc,filtered_obs, action, reward, next_filtered_obs, terminated, hidden_state)
                 
 
 
@@ -103,7 +103,7 @@ def get_upperbound(market, asset):
         else:
             action = 1
 
-        obs, reward, terminated, earning, _ =  market.step(action, asset)
+        action_bc,obs, reward, terminated, earning, _ =  market.step(action, asset)
 
         max_asset += earning
 
@@ -124,7 +124,7 @@ def get_upperbound(market, asset):
         else:
             action = 1
 
-        obs, reward, terminated, earning, _ =  market.step(action, asset)
+        action_bc,obs, reward, terminated, earning, _ =  market.step(action, asset)
 
         min_asset += earning
 
@@ -207,6 +207,13 @@ if __name__ == '__main__':
     parser.add_argument('--FutureFee', '-FF', type=float, default=12)
     parser.add_argument('--FutureDfee', '-FDF', type=float, default=8)
 
+    ##### Behavior Cloning #####
+    parser.add_argument('--is_BClone', default=True, action='store_true', help='conduct behavior cloning or not')
+    parser.add_argument('--is_Qfilt', default=True, action='store_true', help='conduct Q-filter or not')
+    parser.add_argument('--use_Qfilt', default=100, type=int, help='set the episode after warmup to use Q-filter')
+    parser.add_argument('--lambda_Policy', default=0.7, type=int, help='The weight for actor loss')
+    # parser.add_argument('--lambda_BC', default=0.5, type=int, help='The weight for BC loss after Q-filter, default is equal to (1-lambda_Policy)')
+ 
 
     
     args = parser.parse_args()
