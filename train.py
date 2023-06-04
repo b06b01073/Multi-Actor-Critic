@@ -15,7 +15,7 @@ def train(args):
     memory = ReplayBuffer(capacity=args.rmsize)
    
 
-    get_upperbound(market, args.asset)
+    #get_upperbound(market, args.asset)
 
     returns = []
 
@@ -205,6 +205,7 @@ if __name__ == '__main__':
     parser.add_argument('--FutureTax', '-FT', type=float, default=0.00002)
     parser.add_argument('--FutureFee', '-FF', type=float, default=12)
     parser.add_argument('--FutureDfee', '-FDF', type=float, default=8)
+    parser.add_argument('--DotCost','-DC',type=float, default=50)
 
     ##### Behavior Cloning #####
     parser.add_argument('--is_BClone', default=True, action='store_true', help='conduct behavior cloning or not')
