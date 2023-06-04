@@ -34,7 +34,7 @@ class StockMarket:
         '''
 
         self.data_interval = args.data_interval
-        self.history_data = pd.read_csv(args.csv_path, index_col=0)
+        self.history_data = pd.read_csv(args.data_path, index_col=0)
         self.dataset, self.init_state = self.__get_dataset(args.start, args.end)
         self.cur_trade_day = 0
         self.terminated = False
@@ -264,7 +264,7 @@ class StockMarket:
         '''
         return self.dataset.shape[0]
     
-def make(is_BClone, csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax, data_interval):
+def make(args):
     ''' create the stock market environment
 
     initialize the stock market environment by passing the csv_path, start and end to it
@@ -279,4 +279,4 @@ def make(is_BClone, csv_path, start, end, FutureCost, FutureFee, FutureDFee, Fut
     Return:
         returns the StockMarket class instance
     '''
-    return StockMarket(is_BClone, csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax, data_interval)
+    return StockMarket(args)
