@@ -10,8 +10,7 @@ from memory import EpisodicMemory, ReplayBuffer
 
 def train(args):
     agent = ComponentAgent(args)
-    market = env.make(is_BClone=args.is_BClone, csv_path=args.data_path, start=args.start, end=args.end, 
-                      FutureCost=args.FutureCost, FutureFee=args.FutureFee, FutureDFee=args.FutureDfee, FutureTax=args.FutureTax, data_interval=args.data_interval)
+    market = env.make(args)
 
     memory = ReplayBuffer(capacity=args.rmsize)
    

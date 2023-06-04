@@ -21,7 +21,7 @@ class StockMarket:
         first_trade_date(str): date in yyyy-mm-dd format(logging only), the first trade date in the dataset
         last_trade_date(str): date in yyyy-mm-dd format(logging only), the last trade date in the dataset      
     '''
-    def __init__(self, is_BClone, csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax, data_interval):
+    def __init__(self, args):
         ''' initialze the env
 
         The attribute is commented at the beginning of the class
@@ -33,9 +33,9 @@ class StockMarket:
             data_interval(int): data_interval(int): the number of entries in one state(default=2, state consists of the data from the last `data_interval` trade days)
         '''
 
-        self.data_interval = data_interval
-        self.history_data = pd.read_csv(csv_path, index_col=0)
-        self.dataset, self.init_state = self.__get_dataset(start, end)
+        self.data_interval = args.data_interval
+        self.history_data = pd.read_csv(args.csv_path, index_col=0)
+        self.dataset, self.init_state = self.__get_dataset(args.start, args.end)
         self.cur_trade_day = 0
         self.terminated = False
         self.info = defaultdict()
@@ -46,17 +46,23 @@ class StockMarket:
         self.__log_init_info()
         self.__plot_candles()
         
-        self.FutureCost=FutureCost
-        self.FutureFee=FutureFee
-        self.FutureDFee=FutureDFee
-        self.FutureTax=FutureTax
+        self.FutureCost=args.FutureCost
+        self.FutureFee=args.FutureFee
+        self.FutureDFee=args.FutureDFee
+        self.FutureTax=args.FutureTax
 
         # Behavior Cloning
         file = 'TX_data/prophetic.csv'
         self.df=pd.read_csv(file,parse_dates=True,index_col=0)
-        self.is_BClone = is_BClone
-    
+        self.is_BClone = args.is_BClone
 
+        ### DSR parameters ### (DSR: Differential Sharp Ratio)
+        self.R_max = args.Reward_max_clip
+        self.At0 = 0
+        self.Bt0 = 0
+        self.eta = 1/100000 
+        self.SRt0 = 0
+        # 
     def __get_dataset(self, start, end):
         ''' get the dataset and return the first state of the environment
 
