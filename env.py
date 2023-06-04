@@ -21,7 +21,7 @@ class StockMarket:
         first_trade_date(str): date in yyyy-mm-dd format(logging only), the first trade date in the dataset
         last_trade_date(str): date in yyyy-mm-dd format(logging only), the last trade date in the dataset      
     '''
-    def __init__(self, csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax, data_interval):
+    def __init__(self, is_BClone, csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax, data_interval):
         ''' initialze the env
 
         The attribute is commented at the beginning of the class
@@ -54,6 +54,8 @@ class StockMarket:
         # Behavior Cloning
         file = 'TX_data/prophetic.csv'
         self.df=pd.read_csv(file,parse_dates=True,index_col=0)
+        self.is_BClone = is_BClone
+    
 
     def __get_dataset(self, start, end):
         ''' get the dataset and return the first state of the environment
@@ -110,6 +112,7 @@ class StockMarket:
         assert invested_asset > 0
 
         # Behavior Cloning
+        # no attribute self.is_BClone
         if self.is_BClone == True:
             action_bc = self.df['phtAction'][self.cur_trade_day]
             # if action_bc==0 and self.is_PER_replay:
@@ -255,7 +258,7 @@ class StockMarket:
         '''
         return self.dataset.shape[0]
     
-def make(csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax, data_interval):
+def make(is_BClone, csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax, data_interval):
     ''' create the stock market environment
 
     initialize the stock market environment by passing the csv_path, start and end to it
@@ -270,4 +273,4 @@ def make(csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax, dat
     Return:
         returns the StockMarket class instance
     '''
-    return StockMarket(csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax, data_interval)
+    return StockMarket(is_BClone, csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax, data_interval)
