@@ -169,6 +169,7 @@ class ComponentAgent:
         
 
         # Critic update
+        
         current_q = self.critic([to_tensor(state0), to_tensor(action)])
 
 
@@ -194,23 +195,29 @@ class ComponentAgent:
         ##### Behavior Cloning Loss #####
         if self.is_BClone:
             ### Estimate prophetic action ###
-            q_action_bc = self.critic([to_tensor(state0), to_tensor(action_bc)])
+            
+            q_action_bc = self.critic([to_tensor(state0), to_tensor(action_bc).unsqueeze(dim=1)])
             
             ### Q_filter & BC_loss ###
-            BC_loss = self.BC_loss_func(action, action_bc.cuda())
+            BC_loss = self.BC_loss_func(action.float(), to_tensor(action_bc).unsqueeze(dim=1).cuda().float())
             BC_loss = torch.sum(BC_loss,dim=1).unsqueeze(1)
-            
+            BC_loss = BC_loss.to(torch.float32)
+
             Q_filter = torch.gt(q_action_bc, current_q)
-            BC_loss_Qf = BC_loss * (Q_filter.detach())
+            Q_filter = Q_filter.to(torch.float32)
+            BC_loss_Qf = BC_loss.float() * (Q_filter.detach().float())
+            BC_loss_Qf = BC_loss_Qf.to(torch.float32)
             if self.is_Qfilt:
                 ### modified Policy loss ###
-                policy_loss = (self.lambda_Policy*policy_loss) + (self.lambda_BC*BC_loss_Qf) 
+                policy_loss = (self.lambda_Policy*policy_loss) + (self.lambda_BC*BC_loss_Qf.float()) 
             else:
                 ### modified Policy loss ###
-                policy_loss = (self.lambda_Policy*policy_loss) + (self.lambda_BC*BC_loss)
+                policy_loss = (self.lambda_Policy*policy_loss) + (self.lambda_BC*BC_loss.float())
+                
                 
         else:  ### Original Policy loss ###
             policy_loss = policy_loss
+            
 
         
 
@@ -219,14 +226,19 @@ class ComponentAgent:
         self.actor_optim.zero_grad()
         policy_loss = policy_loss.mean()
         torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.2)
+    
+        policy_loss = policy_loss.to(torch.float32)
+
         policy_loss.backward()
         self.actor_optim.step()
 
         self.delay_update += 1
 
-        if self.delay_update % 20 == 0:
-            soft_update(self.actor_target, self.actor, self.tau)
-            soft_update(self.critic_target, self.critic, self.tau)
+        #if self.delay_update % 20 == 0:
+        soft_update(self.actor_target, self.actor, self.tau)
+        soft_update(self.critic_target, self.critic, self.tau)
+
+        return policy_loss, value_loss
 
 
         

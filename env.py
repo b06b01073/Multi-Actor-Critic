@@ -51,6 +51,8 @@ class StockMarket:
         self.FutureDFee=FutureDFee
         self.FutureTax=FutureTax
 
+        self.is_BClone = True
+
         # Behavior Cloning
         file = 'TX_data/prophetic.csv'
         self.df=pd.read_csv(file,parse_dates=True,index_col=0)

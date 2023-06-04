@@ -30,6 +30,9 @@ def train(args):
 
         hidden_state = np.zeros(args.hidden_dim)
 
+        total_value_loss = 0
+        total_policy_loss = 0
+
 
         for _ in tqdm(range(len(market)), desc=f'epoch {i}'):
             
@@ -62,14 +65,18 @@ def train(args):
                 agent.update_asset(earning)
                 assets.append(agent.asset.item())
                 experiences = memory.sample(args.batch_size)
-                agent.learn(experiences, args.batch_size)
+                loss = agent.learn(experiences, args.batch_size)
+
+                if loss is not None:
+                    total_policy_loss += loss[0].item()
+                    total_value_loss += loss[1].item()
                 
 
             hidden_state = new_hidden_state.detach().cpu().numpy()
 
             # print(action, agent.asset)
 
-            if terminated or agent.asset < agent.init_asset * 0.2:
+            if terminated or agent.asset < agent.init_asset * 0.2:\
                 break
 
     
@@ -81,7 +88,7 @@ def train(args):
         agent.increase_action_freedom()
         agent.decrease_noise_weight()
         returns.append(agent.asset / agent.init_asset)
-        print(f'epoch: {i}, total_reward: {total_reward}, asset: {agent.asset}, return: {agent.asset / agent.init_asset}, action_freedom: {agent.action_freedom}, noise_weight: {agent.noise_weight}')
+        print(f'epoch: {i}, total_reward: {total_reward}, asset: {agent.asset}, return: {agent.asset / agent.init_asset}, action_freedom: {agent.action_freedom}, noise_weight: {agent.noise_weight}, policy_loss: {total_policy_loss}, value_loss: {total_value_loss}')
 
     plt.clf()
     plt.plot(returns)
@@ -211,7 +218,7 @@ if __name__ == '__main__':
     parser.add_argument('--is_BClone', default=True, action='store_true', help='conduct behavior cloning or not')
     parser.add_argument('--is_Qfilt', default=True, action='store_true', help='conduct Q-filter or not')
     parser.add_argument('--use_Qfilt', default=100, type=int, help='set the episode after warmup to use Q-filter')
-    parser.add_argument('--lambda_Policy', default=0.7, type=int, help='The weight for actor loss')
+    parser.add_argument('--lambda_Policy', default=0.7, type=float, help='The weight for actor loss')
     # parser.add_argument('--lambda_BC', default=0.5, type=int, help='The weight for BC loss after Q-filter, default is equal to (1-lambda_Policy)')
  
 
