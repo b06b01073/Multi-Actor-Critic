@@ -10,11 +10,14 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.optim.lr_scheduler as Scheduler
 
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class ComponentAgent:
     def __init__(self, args):
         print(f'using rnn mode: {args.rnn_mode}')
+
+        
 
         self.init_asset = args.asset
         self.asset = args.asset
@@ -136,7 +139,7 @@ class ComponentAgent:
     def reset_lstm_hidden_state(self, done=True):
         self.actor.reset_lstm_hidden_state(done)
     
-    def learn(self, experiences, batch_size):
+    def learn(self, experiences, batch_size,epoch):
         # TODO: update the model params
         if experiences is None: # not enough samples
             return
@@ -154,9 +157,11 @@ class ComponentAgent:
         state1 = np.stack([data.state1 for data in experiences]) 
         terminal = np.stack([data.terminal1 for data in experiences])
 
+        with torch.no_grad():
+            _ , next_hidden_state = self.actor_target(to_tensor(state0), to_tensor(hidden_state))
 
+        target_action, _ = self.actor_target(to_tensor(state1), next_hidden_state)
 
-        target_action, _ = self.actor_target(to_tensor(state1), to_tensor(hidden_state))
         next_q_value = self.critic_target([
             to_tensor(state1),
             target_action
@@ -193,7 +198,7 @@ class ComponentAgent:
         # q_action = self.critic([xh_b0, action.cuda()])
         # => current_q
         ##### Behavior Cloning Loss #####
-        if self.is_BClone:
+        if self.is_BClone and (epoch > self.use_Qfilt):
             ### Estimate prophetic action ###
             
             q_action_bc = self.critic([to_tensor(state0), to_tensor(action_bc).unsqueeze(dim=1)])
@@ -202,6 +207,7 @@ class ComponentAgent:
             BC_loss = self.BC_loss_func(action.float(), to_tensor(action_bc).unsqueeze(dim=1).cuda().float())
             BC_loss = torch.sum(BC_loss,dim=1).unsqueeze(1)
             BC_loss = BC_loss.to(torch.float32)
+            BC_loss = -BC_loss
 
             Q_filter = torch.gt(q_action_bc, current_q)
             Q_filter = Q_filter.to(torch.float32)

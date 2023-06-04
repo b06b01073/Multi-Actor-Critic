@@ -2,10 +2,11 @@ from argparse import ArgumentParser
 import matplotlib.pyplot as plt 
 import numpy as np
 from tqdm import tqdm
-
+from torch.utils.tensorboard import SummaryWriter
 from component_agent import ComponentAgent
 import env
 from memory import EpisodicMemory, ReplayBuffer
+import os
 
 
 def train(args):
@@ -19,6 +20,7 @@ def train(args):
     get_upperbound(market, args.asset)
 
     returns = []
+    logger = SummaryWriter(os.path.join("runs", args.run_name))
 
     for i in range(args.epoch):
         obs, _ = market.reset()
@@ -65,7 +67,7 @@ def train(args):
                 agent.update_asset(earning)
                 assets.append(agent.asset.item())
                 experiences = memory.sample(args.batch_size)
-                loss = agent.learn(experiences, args.batch_size)
+                loss = agent.learn(experiences, args.batch_size,i)
 
                 if loss is not None:
                     total_policy_loss += loss[0].item()
@@ -89,6 +91,11 @@ def train(args):
         agent.decrease_noise_weight()
         returns.append(agent.asset / agent.init_asset)
         print(f'epoch: {i}, total_reward: {total_reward}, asset: {agent.asset}, return: {agent.asset / agent.init_asset}, action_freedom: {agent.action_freedom}, noise_weight: {agent.noise_weight}, policy_loss: {total_policy_loss}, value_loss: {total_value_loss}')
+        logger.add_scalar("total_reward", total_reward, i)
+        logger.add_scalar("asset", agent.asset, i)
+        logger.add_scalar("return", (agent.asset / agent.init_asset), i)
+        logger.add_scalar("policy_loss", total_policy_loss, i)
+        logger.add_scalar("value_loss", total_value_loss, i)
 
     plt.clf()
     plt.plot(returns)
@@ -204,7 +211,8 @@ if __name__ == '__main__':
     
 
     parser.add_argument('--data_path', '-d', type=str, default='TX_data/Normalized_TX_TI.csv')
-    parser.add_argument('--start', '-s', type=str, default='2010-01-06') # Do not add quote when providing this arguement in command line.
+    parser.add_argument('--start', '-s', type=str, default='2020-01-06') # Do not add quote when providing this arguement in command line.
+    # 2010-01-06
     parser.add_argument('--end', '-e', type=str, default='2022-12-30')
     parser.add_argument('--asset', '-a', type=float, default=1000000)
     
@@ -224,5 +232,6 @@ if __name__ == '__main__':
 
     
     args = parser.parse_args()
+    args.run_name = "Behavior Cloning"
 
     train(args)
