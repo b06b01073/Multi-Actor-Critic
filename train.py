@@ -79,9 +79,8 @@ def train(args):
 
             
         agent.increase_action_freedom()
-        agent.decrease_noise_weight()
         returns.append(agent.asset / agent.init_asset)
-        print(f'epoch: {i}, total_reward: {total_reward}, asset: {agent.asset}, return: {agent.asset / agent.init_asset}, action_freedom: {agent.action_freedom}, noise_weight: {agent.noise_weight}')
+        print(f'epoch: {i}, total_reward: {total_reward}, asset: {agent.asset}, return: {agent.asset / agent.init_asset}, action_freedom: {agent.action_freedom}')
 
     plt.clf()
     plt.plot(returns)
@@ -160,7 +159,7 @@ if __name__ == '__main__':
     parser.add_argument('--a_rate', default=1e-5, type=float, help='policy net learning rate (only for DDPG)')
     parser.add_argument('--beta1', default=0.3, type=float, help='mometum beta1 for Adam optimizer')
     parser.add_argument('--beta2', default=0.9, type=float, help='mometum beta2 for Adam optimizer')
-    parser.add_argument('--batch_size', default=64, type=int, help='minibatch size')
+    parser.add_argument('--batch_size', default=256, type=int, help='minibatch size')
     parser.add_argument('--warmup', default=-1, type=int)
     
     ##### RL Setting #####

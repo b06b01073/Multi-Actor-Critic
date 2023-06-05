@@ -44,7 +44,7 @@ class ComponentAgent:
         self.rnn_mode = args.rnn_mode
         self.tau = args.tau
         self.discount = args.discount
-        self.random_process = GuassianNoise(mu=0, sigma=0.5)
+        self.random_process = GuassianNoise(mu=0, sigma=0.2)
 
 
         ### Optimizer and LR_scheduler ###
@@ -63,7 +63,6 @@ class ComponentAgent:
 
         self.action_freedom = 0.1
 
-        self.noise_weight = 1
 
     def reset_asset(self):
         self.asset = self.init_asset
@@ -88,9 +87,7 @@ class ComponentAgent:
         self.action_freedom += 0.02
         self.action_freedom = min(self.action_freedom, 1)
 
-    def decrease_noise_weight(self):
-        self.noise_weight -= 0.02
-        self.noise_weight = max(self.noise_weight, 0.1)
+
 
     def take_action(self, state, hidden_state,noise_enable=True):
         # TODO: select action based on the model output
@@ -106,7 +103,7 @@ class ComponentAgent:
 
         if noise_enable == True:
             noise = self.random_process.sample()
-            action += noise * self.noise_weight
+            action += noise
 
 
         # action = np.random.uniform(low=-1.0, high=1)
@@ -138,8 +135,10 @@ class ComponentAgent:
         terminal = np.stack([data.terminal1 for data in experiences])
 
 
+        with torch.no_grad():
+            _, next_hidden_state = self.actor_target(to_tensor(state0), to_tensor(hidden_state))
 
-        target_action, _ = self.actor_target(to_tensor(state1), to_tensor(hidden_state))
+        target_action, _ = self.actor_target(to_tensor(state1),next_hidden_state)
         next_q_value = self.critic_target([
             to_tensor(state1),
             target_action

@@ -210,7 +210,7 @@ class StockMarket:
         output(float): Lot(s) of future (only purchase the Lot of Future that the Cost is less than invested_asset)
         '''
         future_cost = 23000
-        return invested_asset // future_cost
+        return invested_asset / future_cost
     
     def FeeCalculation(self,Lot):
         '''
