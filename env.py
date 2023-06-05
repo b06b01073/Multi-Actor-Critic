@@ -150,7 +150,7 @@ class StockMarket:
         earning = final_price * 50 * B
         TransactionFee = self.FeeCalculation(Lot)
 
-        return np.clip(float(cur_day_data['Price change Ratio'][:-1]) * action, a_min=-0.6, a_max=0.6), earning - TransactionFee
+        return np.clip(float(cur_day_data['Price change Ratio'][:-1]) * action, a_min=-2, a_max=2), earning - TransactionFee
 
 
     def __state_transition(self):
@@ -210,7 +210,7 @@ class StockMarket:
         output(float): Lot(s) of future (only purchase the Lot of Future that the Cost is less than invested_asset)
         '''
         future_cost = 23000
-        return invested_asset // future_cost
+        return invested_asset / future_cost
     
     def FeeCalculation(self,Lot):
         '''

@@ -33,8 +33,8 @@ class ComponentAgent:
         self.actor = Actor(nb_states=nb_states, hidden_dim=args.hidden_dim).to(device)
         self.actor_target = Actor(nb_states=nb_states, hidden_dim=args.hidden_dim).to(device)
         ##### Create Critic Network #####
-        self.critic = Critic(nb_states=nb_states).to(device)
-        self.critic_target = Critic(nb_states=nb_states).to(device)
+        self.critic = Critic(nb_states=nb_states, hidden_dim=args.hidden_dim).to(device)
+        self.critic_target = Critic(nb_states=nb_states, hidden_dim=args.hidden_dim).to(device)
 
         hard_update(self.actor_target, self.actor) # Make sure target is with the same weight
         hard_update(self.critic_target, self.critic)
@@ -44,7 +44,7 @@ class ComponentAgent:
         self.rnn_mode = args.rnn_mode
         self.tau = args.tau
         self.discount = args.discount
-        self.random_process = GuassianNoise(mu=0, sigma=0.5)
+        self.random_process = GuassianNoise(mu=0, sigma=0.1)
 
 
         ### Optimizer and LR_scheduler ###
@@ -63,7 +63,6 @@ class ComponentAgent:
 
         self.action_freedom = 0.1
 
-        self.noise_weight = 1
 
     def reset_asset(self):
         self.asset = self.init_asset
@@ -88,16 +87,17 @@ class ComponentAgent:
         self.action_freedom += 0.02
         self.action_freedom = min(self.action_freedom, 1)
 
-    def decrease_noise_weight(self):
-        self.noise_weight -= 0.02
-        self.noise_weight = max(self.noise_weight, 0.1)
 
-    def take_action(self, state, hidden_state,noise_enable=True):
+    def take_action(self, state, actor_hidden_state, critic_hidden_state, noise_enable=True):
         # TODO: select action based on the model output
 
         state = self.build_state(state).to(device)
-        hidden_state = torch.FloatTensor(hidden_state).to(device)
-        action, hidden_state = self.actor(state, hidden_state)
+        actor_hidden_state = torch.FloatTensor(actor_hidden_state).to(device)
+        action, actor_hidden_state = self.actor(state, actor_hidden_state)
+
+        with torch.no_grad():
+            critic_hidden_state = torch.FloatTensor(critic_hidden_state).to(device)
+            _, critic_hidden_state = self.critic([state, action, critic_hidden_state])
 
         action = to_numpy(action.cpu())
         
@@ -106,7 +106,7 @@ class ComponentAgent:
 
         if noise_enable == True:
             noise = self.random_process.sample()
-            action += noise * self.noise_weight
+            action += noise 
 
 
         # action = np.random.uniform(low=-1.0, high=1)
@@ -114,7 +114,7 @@ class ComponentAgent:
         # action = np.clip(action, a_min=-1, a_max=1) * 0.8 # it seems like when action_freedom = 1, the model breaks easily
         invested_asset = self.asset * np.abs(action)
 
-        return action, invested_asset, state.squeeze().cpu().numpy(), hidden_state
+        return action, invested_asset, state.squeeze().cpu().numpy(), actor_hidden_state, critic_hidden_state
     
     def reset_lstm_hidden_state(self, done=True):
         self.actor.reset_lstm_hidden_state(done)
@@ -128,7 +128,8 @@ class ComponentAgent:
         
 
         
-        hidden_state = np.stack([data.hidden_state for data in experiences]).astype('float32')
+        actor_hidden_state = np.stack([data.actor_hidden_state for data in experiences]).astype('float32')
+        critic_hidden_state = np.stack([data.critic_hidden_state for data in experiences]).astype('float32')
         state0 = np.stack([data.state0 for data in experiences])
         # action = np.expand_dims(np.stack((data.action for data in experiences)), axis=1)
         action = np.stack([data.action for data in experiences])
@@ -136,13 +137,23 @@ class ComponentAgent:
         # reward = np.stack((data.reward for data in experiences))
         state1 = np.stack([data.state1 for data in experiences]) 
         terminal = np.stack([data.terminal1 for data in experiences])
+        terminal = np.stack([data.terminal1 for data in experiences])
 
+        with torch.no_grad():
+            _, next_actor_hidden_state = self.actor_target(to_tensor(state0), to_tensor(actor_hidden_state))
 
+        with torch.no_grad():
+            _, next_critic_hidden_state = self.critic_target([
+                to_tensor(state0),
+                to_tensor(action),
+                to_tensor(critic_hidden_state)
+            ])
 
-        target_action, _ = self.actor_target(to_tensor(state1), to_tensor(hidden_state))
-        next_q_value = self.critic_target([
+        target_action, _ = self.actor_target(to_tensor(state1), next_actor_hidden_state)
+        next_q_value, _ = self.critic_target([
             to_tensor(state1),
-            target_action
+            target_action,
+            next_critic_hidden_state
         ])
 
         
@@ -152,7 +163,7 @@ class ComponentAgent:
         
 
         # Critic update
-        current_q = self.critic([to_tensor(state0), to_tensor(action)])
+        current_q, _ = self.critic([to_tensor(state0), to_tensor(action), to_tensor(critic_hidden_state)])
 
 
         # value_loss = criterion(q_batch, target_q_batch)
@@ -160,29 +171,30 @@ class ComponentAgent:
 
         self.critic_optim.zero_grad()
         value_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 0.2)
+        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 0.1)
         self.critic_optim.step()
 
         # Actor update
-        action, _ = self.actor(to_tensor(state0), to_tensor(hidden_state))
-        policy_loss = -self.critic([
+        action, _ = self.actor(to_tensor(state0), to_tensor(actor_hidden_state))
+        policy_loss, _ = self.critic([
             to_tensor(state0),
-            action
+            action,
+            to_tensor(critic_hidden_state)
         ])
+
 
         # update per trajectory
 
         self.actor_optim.zero_grad()
-        policy_loss = policy_loss.mean()
-        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.2)
+        policy_loss = -policy_loss.mean()
+        
+        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.1)
         policy_loss.backward()
         self.actor_optim.step()
 
-        self.delay_update += 1
 
-        if self.delay_update % 20 == 0:
-            soft_update(self.actor_target, self.actor, self.tau)
-            soft_update(self.critic_target, self.critic, self.tau)
+        soft_update(self.actor_target, self.actor, self.tau)
+        soft_update(self.critic_target, self.critic, self.tau)
 
 
         

@@ -40,14 +40,15 @@ class Actor(nn.Module):
         x = self.relu(self.fc1(x))
         x = self.relu(self.fc2(x))
         hidden_state = self.rnn(x, hidden_state)
-        x = self.tanh(self.fc3(x))
+        x = self.tanh(self.fc3(hidden_state))
         return x, hidden_state
 
 class Critic(nn.Module):
-    def __init__(self, nb_states, nb_actions=1, init_w=3e-3):
+    def __init__(self, nb_states, hidden_dim, nb_actions=1, init_w=3e-3):
         super(Critic, self).__init__()
-        self.fc1 = nn.Linear(nb_states, 400)
-        self.fc2 = nn.Linear(400 + nb_actions, 300)
+        self.fc1 = nn.Linear(nb_states, hidden_dim)
+        self.rnn = nn.GRUCell(hidden_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim + nb_actions, 300)
         self.fc3 = nn.Linear(300, 1)
         self.relu = nn.ReLU()
         self.init_weights(init_w)
@@ -58,12 +59,15 @@ class Critic(nn.Module):
         self.fc3.weight.data.uniform_(-init_w, init_w)
     
     def forward(self, xs):
-        x, a = xs
+        x, a, hidden_state = xs
         out = self.fc1(x)
         out = self.relu(out)
+        hidden_state = self.rnn(out, hidden_state)
         # debug()
         #out = self.fc2(torch.cat([out,a],dim=1)) # dim should be 1, why doesn't work?
-        out = self.fc2(torch.cat([out,a], 1)) # dim should be 1, why doesn't work?
+        
+
+        out = self.fc2(torch.cat([hidden_state,a], -1)) # dim should be 1, why doesn't work?
         out = self.relu(out)
         out = self.fc3(out)
-        return out
+        return out, hidden_state

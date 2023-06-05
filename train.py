@@ -28,13 +28,14 @@ def train(args):
 
         assets = [agent.asset]
 
-        hidden_state = np.zeros(args.hidden_dim)
+        actor_hidden_state = np.zeros(args.hidden_dim)
+        critic_hidden_state = np.zeros(args.hidden_dim)
 
 
         for _ in tqdm(range(len(market)), desc=f'epoch {i}'):
             
             if i >= args.warmup:
-                action, invested_asset, filtered_obs, new_hidden_state = agent.take_action(obs, hidden_state)
+                action, invested_asset, filtered_obs, new_actor_hidden_state, new_critic_hidden_state = agent.take_action(obs, actor_hidden_state, critic_hidden_state)
             else:
                 action = np.random.uniform(-1, 1, (1,)).astype('float32')
                 filtered_obs = agent.build_state(obs).squeeze().cpu().numpy()
@@ -54,7 +55,7 @@ def train(args):
 
 
             if next_filtered_obs is not None:
-                memory.append(filtered_obs, action, reward, next_filtered_obs, terminated, hidden_state)
+                memory.append(filtered_obs, action, reward, next_filtered_obs, terminated, actor_hidden_state, critic_hidden_state)
                 
 
 
@@ -65,11 +66,12 @@ def train(args):
                 agent.learn(experiences, args.batch_size)
                 
 
-            hidden_state = new_hidden_state.detach().cpu().numpy()
+            actor_hidden_state = new_actor_hidden_state.detach().cpu().numpy()
+            critic_hidden_state = new_critic_hidden_state.detach().cpu().numpy()
 
             # print(action, agent.asset)
 
-            if terminated or agent.asset < agent.init_asset * 0.2:
+            if terminated or agent.asset <= 0:
                 break
 
     
@@ -79,9 +81,8 @@ def train(args):
 
             
         agent.increase_action_freedom()
-        agent.decrease_noise_weight()
         returns.append(agent.asset / agent.init_asset)
-        print(f'epoch: {i}, total_reward: {total_reward}, asset: {agent.asset}, return: {agent.asset / agent.init_asset}, action_freedom: {agent.action_freedom}, noise_weight: {agent.noise_weight}')
+        print(f'epoch: {i}, total_reward: {total_reward}, asset: {agent.asset}, return: {agent.asset / agent.init_asset}, action_freedom: {agent.action_freedom}')
 
     plt.clf()
     plt.plot(returns)
