@@ -149,8 +149,7 @@ class StockMarket:
         final_price = Lot * price_change
         earning = final_price * 50 * B
         TransactionFee = self.FeeCalculation(Lot)
-
-        return np.clip(float(cur_day_data['Price change Ratio'][:-1]) * action, a_min=-2, a_max=2), earning - TransactionFee
+        return np.clip(float(cur_day_data['Price change Ratio'][:-1]) * action, a_min=-2, a_max=0.6), earning - TransactionFee
 
 
     def __state_transition(self):

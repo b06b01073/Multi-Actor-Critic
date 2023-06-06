@@ -84,9 +84,9 @@ def train(args):
         returns.append(agent.asset / agent.init_asset)
         print(f'epoch: {i}, total_reward: {total_reward}, asset: {agent.asset}, return: {agent.asset / agent.init_asset}, action_freedom: {agent.action_freedom}')
 
-    plt.clf()
-    plt.plot(returns)
-    plt.savefig('img/returns.jpg')
+        plt.clf()
+        plt.plot(returns)
+        plt.savefig('img/returns.jpg')
 
 def get_upperbound(market, asset):
     total_reward = 0 
@@ -154,7 +154,7 @@ if __name__ == '__main__':
     parser.add_argument('--epoch', default=300, type=int) 
     parser.add_argument('--agent_type', type=int, default=1)
     parser.add_argument('--device', type=str, default='cuda')
-    parser.add_argument('--data_interval', type=int, default=10)
+    parser.add_argument('--data_interval', type=int, default=2)
     
     ##### Learning Setting #####
     parser.add_argument('--c_rate', default=1e-4, type=float, help='critic net learning rate') 
@@ -168,7 +168,7 @@ if __name__ == '__main__':
     parser.add_argument('--discount', default=0.99, type=float, help='future rewards discount rate')
     parser.add_argument('--a_update_freq', default=3, type=int, help='actor update frequecy (per N steps)')
     parser.add_argument('--Reward_max_clip', default=15., type=float, help='max DSR reward for clipping')
-    parser.add_argument('--tau', default=0.001, type=float, help='moving average for target network')
+    parser.add_argument('--tau', default=0.01, type=float, help='moving average for target network')
     ##### original Replay Buffer Setting #####
     parser.add_argument('--rmsize', default=100000, type=int, help='memory size')
     parser.add_argument('--window_length', default=1, type=int, help='')  

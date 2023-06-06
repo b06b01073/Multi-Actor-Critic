@@ -44,14 +44,14 @@ class ComponentAgent:
         self.rnn_mode = args.rnn_mode
         self.tau = args.tau
         self.discount = args.discount
-        self.random_process = GuassianNoise(mu=0, sigma=0.1)
+        self.random_process = GuassianNoise(mu=0, sigma=0.15)
 
 
         ### Optimizer and LR_scheduler ###
         beta1 = args.beta1
         beta2 = args.beta2
-        self.critic_optim  = Adam(self.critic.parameters(), lr=args.c_rate, weight_decay=1e-3)
-        self.actor_optim  = Adam(self.actor.parameters(), lr=args.a_rate, weight_decay=1e-3)
+        self.critic_optim  = Adam(self.critic.parameters(), lr=args.c_rate, weight_decay=1e-4)
+        self.actor_optim  = Adam(self.actor.parameters(), lr=args.a_rate, weight_decay=1e-4)
 
 
         ### initialized values 
@@ -61,7 +61,7 @@ class ComponentAgent:
 
         self.delay_update = 0
 
-        self.action_freedom = 0.1
+        self.action_freedom = 0.01
 
 
     def reset_asset(self):
@@ -84,7 +84,7 @@ class ComponentAgent:
             return torch.FloatTensor(concat_data)
 
     def increase_action_freedom(self):
-        self.action_freedom += 0.02
+        self.action_freedom += 0.001
         self.action_freedom = min(self.action_freedom, 1)
 
 
@@ -171,7 +171,7 @@ class ComponentAgent:
 
         self.critic_optim.zero_grad()
         value_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 0.1)
+        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 0.5)
         self.critic_optim.step()
 
         # Actor update
@@ -188,13 +188,15 @@ class ComponentAgent:
         self.actor_optim.zero_grad()
         policy_loss = -policy_loss.mean()
         
-        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.1)
+        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.5)
         policy_loss.backward()
         self.actor_optim.step()
 
+        self.delay_update += 1
 
-        soft_update(self.actor_target, self.actor, self.tau)
-        soft_update(self.critic_target, self.critic, self.tau)
+        if self.delay_update % 20 == 0:
+            soft_update(self.actor_target, self.actor, self.tau)
+            soft_update(self.critic_target, self.critic, self.tau)
 
 
         
