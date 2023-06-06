@@ -2,24 +2,52 @@ from argparse import ArgumentParser
 import matplotlib.pyplot as plt 
 import numpy as np
 from tqdm import tqdm
-
+import torch
 from component_agent import ComponentAgent
 import env
 from memory import EpisodicMemory, ReplayBuffer
+from baseline import baseline
+
+def test(testmarket, agent, lastasset):
+    agent.reset_asset()
+    #agent.init_action_freedom()
+    obs, _ = testmarket.reset()
+    actor_hidden_state = np.zeros(args.hidden_dim)
+    critic_hidden_state = np.zeros(args.hidden_dim)
+    assets=[]
+    for _ in tqdm(range(len(testmarket))):
+        action, invested_asset, filtered_obs, new_actor_hidden_state, new_critic_hidden_state = agent.take_action(obs, actor_hidden_state, critic_hidden_state,False)
+        next_obs, reward, terminated, earning, _ = testmarket.step(action, invested_asset)
+        #total_reward += reward
+        # print(reward)
 
 
+        next_filtered_obs = agent.build_state(next_obs)
+        obs = next_obs
+        actor_hidden_state = new_actor_hidden_state.detach().cpu().numpy()
+        critic_hidden_state = new_critic_hidden_state.detach().cpu().numpy()
+        agent.update_asset(earning)
+        assets.append(agent.asset.item())
+        if terminated or agent.asset <= 0:
+            break
+    if agent.asset.item()>lastasset:
+        lastasset=agent.asset.item()
+        agent.save()
+    return lastasset, assets
 def train(args):
     agent = ComponentAgent(args)
+    test_asset=0
+    testmarket=env.make(csv_path=args.data_path, start=args.teststart, end=args.testend, 
+                      FutureCost=args.FutureCost, FutureFee=args.FutureFee, FutureDFee=args.FutureDfee, FutureTax=args.FutureTax, data_interval=args.data_interval, train_mode=False)
     market = env.make(csv_path=args.data_path, start=args.start, end=args.end, 
-                      FutureCost=args.FutureCost, FutureFee=args.FutureFee, FutureDFee=args.FutureDfee, FutureTax=args.FutureTax, data_interval=args.data_interval)
-
+                      FutureCost=args.FutureCost, FutureFee=args.FutureFee, FutureDFee=args.FutureDfee, FutureTax=args.FutureTax, data_interval=args.data_interval, train_mode=True)
+    
     memory = ReplayBuffer(capacity=args.rmsize)
-   
 
-    get_upperbound(market, args.asset)
 
     returns = []
-
+    L,S=baseline(args,args.start,args.end)
+    lt,st=baseline(args,args.teststart,args.testend)
     for i in range(args.epoch):
         obs, _ = market.reset()
         agent.reset_asset()
@@ -70,22 +98,29 @@ def train(args):
             critic_hidden_state = new_critic_hidden_state.detach().cpu().numpy()
 
             # print(action, agent.asset)
-
+            
             if terminated or agent.asset <= 0:
                 break
-
-    
+            
+        
         plt.clf()
         plt.plot(assets)
+        plt.plot(L,color='RED')
+        plt.plot(S,color='GREEN')
         plt.savefig('img/result.jpg')
-
-            
+        train_asset=agent.asset
+        test_asset,test_assets=test(testmarket,agent,test_asset)
+        plt.clf()
+        plt.plot(test_assets)
+        plt.plot(lt,color='RED')
+        plt.plot(st,color='GREEN')
+        plt.savefig('img/test_result.jpg')
         agent.increase_action_freedom()
         returns.append(agent.asset / agent.init_asset)
-        print(f'epoch: {i}, total_reward: {total_reward}, asset: {agent.asset}, return: {agent.asset / agent.init_asset}, action_freedom: {agent.action_freedom}')
+        print(f'epoch: {i}, total_reward: {total_reward}, asset: {train_asset}, return: {train_asset / agent.init_asset}, action_freedom: {agent.action_freedom}, test_return: {test_asset}')
 
         plt.clf()
-        plt.plot(returns)
+        plt.plot(returns,color='Blue')
         plt.savefig('img/returns.jpg')
 
 def get_upperbound(market, asset):
@@ -142,7 +177,7 @@ if __name__ == '__main__':
 
     ##### Model Setting #####
     parser.add_argument('--rnn_mode', default='lstm', type=str, help='RNN mode: LSTM/GRU')
-    parser.add_argument('--input_size', default=6, type=int, help='num of features for input state')
+    parser.add_argument('--input_size', default=7, type=int, help='num of features for input state')
     parser.add_argument('--seq_len', default=15, type=int, help='sequence length of input state')
     parser.add_argument('--num_rnn_layer', default=2, type=int, help='num of rnn layer')
     parser.add_argument('--hidden_rnn', default=128, type=int, help='hidden num of lstm layer')
@@ -157,8 +192,8 @@ if __name__ == '__main__':
     parser.add_argument('--data_interval', type=int, default=2)
     
     ##### Learning Setting #####
-    parser.add_argument('--c_rate', default=1e-4, type=float, help='critic net learning rate') 
-    parser.add_argument('--a_rate', default=1e-5, type=float, help='policy net learning rate (only for DDPG)')
+    parser.add_argument('--c_rate', default=1e-3, type=float, help='critic net learning rate') 
+    parser.add_argument('--a_rate', default=1e-4, type=float, help='policy net learning rate (only for DDPG)')
     parser.add_argument('--beta1', default=0.3, type=float, help='mometum beta1 for Adam optimizer')
     parser.add_argument('--beta2', default=0.9, type=float, help='mometum beta2 for Adam optimizer')
     parser.add_argument('--batch_size', default=64, type=int, help='minibatch size')
@@ -200,6 +235,8 @@ if __name__ == '__main__':
     parser.add_argument('--data_path', '-d', type=str, default='TX_data/Normalized_TX_TI.csv')
     parser.add_argument('--start', '-s', type=str, default='2010-01-06') # Do not add quote when providing this arguement in command line.
     parser.add_argument('--end', '-e', type=str, default='2022-12-30')
+    parser.add_argument('--teststart', '-ts', type=str, default='2010-01-06') # Do not add quote when providing this arguement in command line.
+    parser.add_argument('--testend', '-te', type=str, default='2022-12-30')
     parser.add_argument('--asset', '-a', type=float, default=1000000)
     
     # future cost

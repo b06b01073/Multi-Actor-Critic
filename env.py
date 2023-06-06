@@ -21,7 +21,7 @@ class StockMarket:
         first_trade_date(str): date in yyyy-mm-dd format(logging only), the first trade date in the dataset
         last_trade_date(str): date in yyyy-mm-dd format(logging only), the last trade date in the dataset      
     '''
-    def __init__(self, csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax, data_interval):
+    def __init__(self, csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax, data_interval, train_mode):
         ''' initialze the env
 
         The attribute is commented at the beginning of the class
@@ -50,6 +50,7 @@ class StockMarket:
         self.FutureFee=FutureFee
         self.FutureDFee=FutureDFee
         self.FutureTax=FutureTax
+        self.train_mode=train_mode
 
     def __get_dataset(self, start, end):
         ''' get the dataset and return the first state of the environment
@@ -78,10 +79,12 @@ class StockMarket:
         Returns:
             return the first state, and the info
         '''
-        self.cur_trade_day = 0
+        
+        self.cur_trade_day = np.random.randint(0,len(self.dataset)) if self.train_mode else 0
+        self.last_trade_day = np.random.randint(self.cur_trade_day,len(self.dataset)) if self.train_mode else len(self.dataset)
         self.cur_state = self.init_state
         self.terminated = False
-
+        
         return self.init_state, self.__set_info()
 
     def step(self, action, invested_asset):
@@ -111,7 +114,7 @@ class StockMarket:
         # state transition
         self.cur_state = self.__state_transition()
         self.cur_trade_day += 1
-        if self.cur_trade_day >= len(self.dataset):
+        if self.cur_trade_day >= self.last_trade_day:
             self.terminated = True
 
         # update info
@@ -149,6 +152,7 @@ class StockMarket:
         final_price = Lot * price_change
         earning = final_price * 50 * B
         TransactionFee = self.FeeCalculation(Lot)
+        
         return np.clip(float(cur_day_data['Price change Ratio'][:-1]) * action, a_min=-2, a_max=0.6), earning - TransactionFee
 
 
@@ -162,7 +166,7 @@ class StockMarket:
         '''
 
         next_day = self.cur_trade_day + 1
-        if next_day >= len(self.dataset):  # there is no next day(cur day is the last day)
+        if next_day >= self.last_trade_day:  # there is no next day(cur day is the last day)
             return None
         new_state = pd.concat([self.cur_state, pd.DataFrame([self.dataset.iloc[next_day]])], ignore_index=True).tail(-1)
         
@@ -238,7 +242,7 @@ class StockMarket:
         '''
         return self.dataset.shape[0]
     
-def make(csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax, data_interval):
+def make(csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax, data_interval, train_mode):
     ''' create the stock market environment
 
     initialize the stock market environment by passing the csv_path, start and end to it
@@ -253,4 +257,4 @@ def make(csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax, dat
     Return:
         returns the StockMarket class instance
     '''
-    return StockMarket(csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax, data_interval)
+    return StockMarket(csv_path, start, end, FutureCost, FutureFee, FutureDFee, FutureTax, data_interval, train_mode)

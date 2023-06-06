@@ -4,24 +4,28 @@ import math
 from argparse import ArgumentParser
 from datetime import datetime
 
-def baseline(args):
+def baseline(args,start,end):
+
     history_data = pd.read_csv(args.data_path, index_col=0)
-    date_mask = (history_data['Date'] >= args.start) & (history_data['Date'] <= args.end)
+    date_mask = (history_data['Date'] >= start) & (history_data['Date'] <= end)
     
     history_data = history_data[date_mask].reset_index(drop=True)
 
     
     first_open_price = history_data.iloc[0]['Open']
-    shares = args.asset / first_open_price
-    earnings = []
+    shares = args.asset / 46000
+    L_earnings = []
+    S_earnings = []
 
     for i in range(len(history_data)):
         close_price = history_data.iloc[i]['Close']
-        earnings.append(shares * close_price - args.asset)
+        L_earnings.append(shares * (close_price - first_open_price)+args.asset)
+        S_earnings.append(shares * (first_open_price - close_price)+args.asset)
 
-    plt.plot(earnings)
-    plt.title('Buy and hold')
-    plt.savefig('img/baseline.jpg')
+    #plt.plot(earnings)
+    #plt.title('Buy and hold')
+    #plt.savefig('img/baseline.jpg')
+    return(L_earnings,S_earnings)
 def MoneytoLot(args,assets):
     '''
     Change Money to Lot

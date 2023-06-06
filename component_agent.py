@@ -79,19 +79,23 @@ class ComponentAgent:
         prev_volumes = [state.iloc[i]['norm_Volume'] for i in range(self.data_interval - 1)]
         prev_MA5 = [state.iloc[i]['norm_MA5'] for i in range(self.data_interval - 1)]
         prev_MA10 = [state.iloc[i]['norm_MA10'] for i in range(self.data_interval - 1)]
+        prev_std5=[state.iloc[i]['norm_std5'] for i in range(self.data_interval - 1)]
+        
         if self.agent_type == 1:
-            concat_data = prev_opens  + prev_highs + prev_lows + prev_closes + prev_MA5 + prev_MA10
+            concat_data = prev_opens  + prev_highs + prev_lows + prev_closes + prev_MA5 + prev_MA10 + prev_std5
             return torch.FloatTensor(concat_data)
 
     def increase_action_freedom(self):
-        self.action_freedom += 0.001
+        self.action_freedom += 0.02
         self.action_freedom = min(self.action_freedom, 1)
 
-
+    def init_action_freedom(self):
+        self.action_freedom=1
     def take_action(self, state, actor_hidden_state, critic_hidden_state, noise_enable=True):
         # TODO: select action based on the model output
-
+        
         state = self.build_state(state).to(device)
+        #print(state)
         actor_hidden_state = torch.FloatTensor(actor_hidden_state).to(device)
         action, actor_hidden_state = self.actor(state, actor_hidden_state)
 
@@ -136,7 +140,6 @@ class ComponentAgent:
         reward = np.stack([data.reward for data in experiences]).astype('float32')
         # reward = np.stack((data.reward for data in experiences))
         state1 = np.stack([data.state1 for data in experiences]) 
-        terminal = np.stack([data.terminal1 for data in experiences])
         terminal = np.stack([data.terminal1 for data in experiences])
 
         with torch.no_grad():
@@ -257,4 +260,7 @@ class ComponentAgent:
                     }, model_path)
 
 
+    def save(self):
+        torch.save(self.critic, 'critic.pth')
+        torch.save(self.actor, 'actor.pth')
 
