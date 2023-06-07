@@ -9,8 +9,9 @@ import numpy as np
 
 # This is to be understood as a transition: Given `state0`, performing `action`
 # yields `reward` and results in `state1`, which might be `terminal`.
-# Experience = namedtuple('Experience', 'action_bc, state0, action, reward, state1, terminal1')
-Experience = namedtuple('Experience', 'state0, action, reward, state1, terminal1, actor_hidden_state, critic_hidden_state')
+#Experience = namedtuple('Experience', 'action_bc, state0, action, reward, state1, terminal1')
+Experience = namedtuple('Experience',  'state0, action, reward, state1, terminal1')
+#Experience = namedtuple('Experience', 'state0, action, reward, state1, terminal1, actor_hidden_state, critic_hidden_state')
 
 
 def sample_batch_indexes(low, high, size):
