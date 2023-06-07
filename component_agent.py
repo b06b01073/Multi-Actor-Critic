@@ -14,7 +14,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class ComponentAgent:
     def __init__(self, args):
-        print(f'using rnn mode: {args.rnn_mode}')
+        #print(f'using rnn mode: {args.rnn_mode}')
 
         self.init_asset = args.asset
         self.asset = args.asset
@@ -41,10 +41,11 @@ class ComponentAgent:
         
         # Hyper-parameters
         self.is_training = True
-        self.rnn_mode = args.rnn_mode
+        #
+        # self.rnn_mode = args.rnn_mode
         self.tau = args.tau
         self.discount = args.discount
-        self.random_process = GuassianNoise(mu=0, sigma=0.2)
+        self.random_process = OrnsteinUhlenbeckProcess(mu=0, sigma=0.2)
 
 
         ### Optimizer and LR_scheduler ###
@@ -250,7 +251,7 @@ class ComponentAgent:
 
     def save_model(self, checkpoint_path, episode, ewma_reward):
         e_reward = int(np.round(ewma_reward)) #(ewma_reward,2)
-        description = '_' +self.rnn_mode +'_' +'ep' +str(episode) +'_' +'rd' +str(e_reward) +'_' +str(self.date) +'.pkl'
+        description = '_'  +'_' +'ep' +str(episode) +'_' +'rd' +str(e_reward) +'_' +str(self.date) +'.pkl'
         if self.is_BClone:
             description = '_BC' +description
         model_path = checkpoint_path +'/' +description

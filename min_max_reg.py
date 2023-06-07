@@ -17,8 +17,10 @@ def main(args):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--read_path', '-r', type=str, default='./TX_data/TX_TI.csv')
-    parser.add_argument('--write_path', '-w', type=str, default='./TX_data/Normalized_TX_TI.csv')
+    #parser.add_argument('--read_path', '-r', type=str, default='./TX_data/TX_TI.csv')
+    #parser.add_argument('--write_path', '-w', type=str, default='./TX_data/Normalized_TX_TI.csv')
+    parser.add_argument('--read_path', '-r', type=str, default='./TX_data/^GSPC_2000-01-01_2022-12-31.csv')
+    parser.add_argument('--write_path', '-w', type=str, default='./TX_data/normalized_^GSPC_2000-01-01_2022-12-31.csv')
 
     args = parser.parse_args()
 
