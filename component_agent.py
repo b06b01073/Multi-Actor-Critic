@@ -44,14 +44,14 @@ class ComponentAgent:
         self.rnn_mode = args.rnn_mode
         self.tau = args.tau
         self.discount = args.discount
-        self.random_process = GuassianNoise(mu=0, sigma=0.15)
+        self.random_process = GuassianNoise(mu=0, sigma=0.2)
 
 
         ### Optimizer and LR_scheduler ###
         beta1 = args.beta1
         beta2 = args.beta2
-        self.critic_optim  = Adam(self.critic.parameters(), lr=args.c_rate, weight_decay=1e-4)
-        self.actor_optim  = Adam(self.actor.parameters(), lr=args.a_rate, weight_decay=1e-4)
+        self.critic_optim  = Adam(self.critic.parameters(), lr=args.c_rate, weight_decay=2e-4)
+        self.actor_optim  = Adam(self.actor.parameters(), lr=args.a_rate, weight_decay=2e-4)
 
 
         ### initialized values 
@@ -71,7 +71,7 @@ class ComponentAgent:
     def build_state(self, state):
         if state is None:
             return None
-
+        #print(state)
         prev_opens = [state.iloc[i]['norm_Open'] for i in range(self.data_interval - 1)]
         prev_highs = [state.iloc[i]['norm_High'] for i in range(self.data_interval - 1)]
         prev_closes = [state.iloc[i]['norm_Close'] for i in range(self.data_interval - 1)]
@@ -93,7 +93,7 @@ class ComponentAgent:
         self.action_freedom=1
     def take_action(self, state, actor_hidden_state, critic_hidden_state, noise_enable=True):
         # TODO: select action based on the model output
-        
+        ma5=state.iloc[1]['norm_MA5']-state.iloc[2]['norm_MA5']
         state = self.build_state(state).to(device)
         #print(state)
         actor_hidden_state = torch.FloatTensor(actor_hidden_state).to(device)
@@ -103,18 +103,23 @@ class ComponentAgent:
             critic_hidden_state = torch.FloatTensor(critic_hidden_state).to(device)
             _, critic_hidden_state = self.critic([state, action, critic_hidden_state])
 
-        action = to_numpy(action.cpu())
+        action = to_numpy(action.cpu()) * self.action_freedom
         
 
         
 
         if noise_enable == True:
+            
             noise = self.random_process.sample()
+            #if ma5 > 0 and noise<0:
+            #    noise *= -1
+            #if ma5 < 0 and noise > 0:
+            #   noise *= -1
             action += noise 
 
 
         # action = np.random.uniform(low=-1.0, high=1)
-        action = np.clip(action, a_min=-1, a_max=1) * self.action_freedom
+        action = np.clip(action, a_min=-0.8, a_max=0.8)
         # action = np.clip(action, a_min=-1, a_max=1) * 0.8 # it seems like when action_freedom = 1, the model breaks easily
         invested_asset = self.asset * np.abs(action)
 
@@ -174,7 +179,7 @@ class ComponentAgent:
 
         self.critic_optim.zero_grad()
         value_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 0.5)
+        #torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 0.5)
         self.critic_optim.step()
 
         # Actor update
@@ -191,7 +196,7 @@ class ComponentAgent:
         self.actor_optim.zero_grad()
         policy_loss = -policy_loss.mean()
         
-        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.5)
+        #torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.5)
         policy_loss.backward()
         self.actor_optim.step()
 

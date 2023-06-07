@@ -66,9 +66,10 @@ class StockMarket:
         Returns:
             It first return the dataset that is in the desired range(specified by the start and end argument), then, it return the first state
         '''
-
+        # print(start)
+        # print(self.history_data)
         first_date_index = self.history_data[self.history_data['Date'] >= start].index[0]
-        print(first_date_index)
+        # print(first_date_index)
         init_state = self.history_data[first_date_index-self.data_interval+1:first_date_index+1]
         date_mask = (self.history_data['Date'] >= start) & (self.history_data['Date'] <= end)
         return self.history_data[date_mask].reset_index(drop=True), init_state.reset_index(drop=True)
@@ -136,7 +137,7 @@ class StockMarket:
         assert invested_asset > 0
 
         cur_day_data = self.dataset.iloc[self.cur_trade_day]
-        close_price, open_price = cur_day_data['Close'], cur_day_data['Open']
+        close_price, open_price, ma5, low_price, high_price = cur_day_data['Close'], cur_day_data['Open'], cur_day_data['MA5'], cur_day_data['Low'], cur_day_data['High']
         increase = (close_price - open_price) > 0
 
         
@@ -152,8 +153,14 @@ class StockMarket:
         final_price = Lot * price_change
         earning = final_price * 50 * B
         TransactionFee = self.FeeCalculation(Lot)
+        change_sign = 1 if price_change >= 0 else -1
+            
+        w=0
         
-        return np.clip(float(cur_day_data['Price change Ratio'][:-1]) * action, a_min=-2, a_max=0.6), earning - TransactionFee
+        mdd= -(open_price-low_price) if action >= 0 else (open_price-high_price)
+        #print(action*change_sign, mdd/200)
+        #print(price_change, action, w) 
+        return action*change_sign + mdd / 250, earning - TransactionFee
 
 
     def __state_transition(self):

@@ -14,7 +14,7 @@ def test(testmarket, agent, lastasset):
     obs, _ = testmarket.reset()
     actor_hidden_state = np.zeros(args.hidden_dim)
     critic_hidden_state = np.zeros(args.hidden_dim)
-    assets=[]
+    assets=[agent.asset]
     for _ in tqdm(range(len(testmarket))):
         action, invested_asset, filtered_obs, new_actor_hidden_state, new_critic_hidden_state = agent.take_action(obs, actor_hidden_state, critic_hidden_state,False)
         next_obs, reward, terminated, earning, _ = testmarket.step(action, invested_asset)
@@ -28,6 +28,9 @@ def test(testmarket, agent, lastasset):
         critic_hidden_state = new_critic_hidden_state.detach().cpu().numpy()
         agent.update_asset(earning)
         assets.append(agent.asset.item())
+        with open("record.txt", 'a') as f:
+            f.write(f'{agent.asset}, {action}, {invested_asset}, {earning}, {reward}')
+            f.write("\n")
         if terminated or agent.asset <= 0:
             break
     if agent.asset.item()>lastasset:
@@ -37,10 +40,13 @@ def test(testmarket, agent, lastasset):
 def train(args):
     agent = ComponentAgent(args)
     test_asset=0
+    simu_asset=0
+    Simumarket=env.make(csv_path=args.data_path, start=args.simustart, end=args.simuend, 
+                      FutureCost=args.FutureCost, FutureFee=args.FutureFee, FutureDFee=args.FutureDfee, FutureTax=args.FutureTax, data_interval=args.data_interval, train_mode=False)
     testmarket=env.make(csv_path=args.data_path, start=args.teststart, end=args.testend, 
                       FutureCost=args.FutureCost, FutureFee=args.FutureFee, FutureDFee=args.FutureDfee, FutureTax=args.FutureTax, data_interval=args.data_interval, train_mode=False)
     market = env.make(csv_path=args.data_path, start=args.start, end=args.end, 
-                      FutureCost=args.FutureCost, FutureFee=args.FutureFee, FutureDFee=args.FutureDfee, FutureTax=args.FutureTax, data_interval=args.data_interval, train_mode=True)
+                      FutureCost=args.FutureCost, FutureFee=args.FutureFee, FutureDFee=args.FutureDfee, FutureTax=args.FutureTax, data_interval=args.data_interval, train_mode=False)
     
     memory = ReplayBuffer(capacity=args.rmsize)
 
@@ -48,6 +54,7 @@ def train(args):
     returns = []
     L,S=baseline(args,args.start,args.end)
     lt,st=baseline(args,args.teststart,args.testend)
+    slt,sst=baseline(args,args.simustart,args.simuend)
     for i in range(args.epoch):
         obs, _ = market.reset()
         agent.reset_asset()
@@ -115,9 +122,16 @@ def train(args):
         plt.plot(lt,color='RED')
         plt.plot(st,color='GREEN')
         plt.savefig('img/test_result.jpg')
+        
+        simu_asset,Simu_assets=test(Simumarket,agent,simu_asset)
+        plt.clf()
+        plt.plot(Simu_assets)
+        plt.plot(slt,color='RED')
+        plt.plot(sst,color='GREEN')
+        plt.savefig('img/Simu_result.jpg')
         agent.increase_action_freedom()
         returns.append(agent.asset / agent.init_asset)
-        print(f'epoch: {i}, total_reward: {total_reward}, asset: {train_asset}, return: {train_asset / agent.init_asset}, action_freedom: {agent.action_freedom}, test_return: {test_asset}')
+        print(f'epoch: {i}, total_reward: {total_reward}, asset: {train_asset}, return: {train_asset / agent.init_asset}, action_freedom: {agent.action_freedom}, test_return: {test_asset} , Simu_asset: {simu_asset}')
 
         plt.clf()
         plt.plot(returns,color='Blue')
@@ -181,7 +195,7 @@ if __name__ == '__main__':
     parser.add_argument('--seq_len', default=15, type=int, help='sequence length of input state')
     parser.add_argument('--num_rnn_layer', default=2, type=int, help='num of rnn layer')
     parser.add_argument('--hidden_rnn', default=128, type=int, help='hidden num of lstm layer')
-    parser.add_argument('--hidden_dim', default=256, type=int, help='hidden_dim of gru layer')
+    parser.add_argument('--hidden_dim', default=512, type=int, help='hidden_dim of gru layer')
     parser.add_argument('--hidden_fc1', default=256, type=int, help='hidden num of 1st-fc layer')
     parser.add_argument('--hidden_fc2', default=64, type=int, help='hidden num of 2nd-fc layer')
     parser.add_argument('--hidden_fc3', default=32, type=int, help='hidden num of 3rd-fc layer')
@@ -189,11 +203,11 @@ if __name__ == '__main__':
     parser.add_argument('--epoch', default=300, type=int) 
     parser.add_argument('--agent_type', type=int, default=1)
     parser.add_argument('--device', type=str, default='cuda')
-    parser.add_argument('--data_interval', type=int, default=2)
+    parser.add_argument('--data_interval', type=int, default=10)
     
     ##### Learning Setting #####
     parser.add_argument('--c_rate', default=1e-3, type=float, help='critic net learning rate') 
-    parser.add_argument('--a_rate', default=1e-4, type=float, help='policy net learning rate (only for DDPG)')
+    parser.add_argument('--a_rate', default=4e-4, type=float, help='policy net learning rate (only for DDPG)')
     parser.add_argument('--beta1', default=0.3, type=float, help='mometum beta1 for Adam optimizer')
     parser.add_argument('--beta2', default=0.9, type=float, help='mometum beta2 for Adam optimizer')
     parser.add_argument('--batch_size', default=64, type=int, help='minibatch size')
@@ -237,6 +251,8 @@ if __name__ == '__main__':
     parser.add_argument('--end', '-e', type=str, default='2022-12-30')
     parser.add_argument('--teststart', '-ts', type=str, default='2010-01-06') # Do not add quote when providing this arguement in command line.
     parser.add_argument('--testend', '-te', type=str, default='2022-12-30')
+    parser.add_argument('--simustart', '-ss', type=str, default='2023-01-01') # Do not add quote when providing this arguement in command line.
+    parser.add_argument('--simuend', '-se', type=str, default='2023-05-31')
     parser.add_argument('--asset', '-a', type=float, default=1000000)
     
     # future cost

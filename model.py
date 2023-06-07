@@ -27,6 +27,7 @@ class Actor(nn.Module):
     def init_weights(self, init_w):
         self.fc1.weight.data = fanin_init(self.fc1.weight.data.size())
         self.fc2.weight.data = fanin_init(self.fc2.weight.data.size())
+        self.fc3.weight.data = fanin_init(self.fc3.weight.data.size())
 
     def reset_lstm_hidden_state(self, done=True):
         if done == True:
@@ -40,6 +41,7 @@ class Actor(nn.Module):
         x = self.relu(self.fc1(x))
         x = self.relu(self.fc2(x))
         hidden_state = self.rnn(x, hidden_state)
+        
         x = self.tanh(self.fc3(hidden_state))
         return x, hidden_state
 
@@ -69,5 +71,6 @@ class Critic(nn.Module):
 
         out = self.fc2(torch.cat([hidden_state,a], -1)) # dim should be 1, why doesn't work?
         out = self.relu(out)
+        
         out = self.fc3(out)
         return out, hidden_state

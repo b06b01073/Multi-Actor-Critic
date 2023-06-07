@@ -14,13 +14,13 @@ def baseline(args,start,end):
     
     first_open_price = history_data.iloc[0]['Open']
     shares = args.asset / 46000
-    L_earnings = []
-    S_earnings = []
+    L_earnings = [args.asset]
+    S_earnings = [args.asset]
 
     for i in range(len(history_data)):
         close_price = history_data.iloc[i]['Close']
-        L_earnings.append(shares * (close_price - first_open_price)+args.asset)
-        S_earnings.append(shares * (first_open_price - close_price)+args.asset)
+        L_earnings.append(shares * 50 * (close_price - first_open_price)+args.asset)
+        S_earnings.append(shares * 50 * (first_open_price - close_price)+args.asset)
 
     #plt.plot(earnings)
     #plt.title('Buy and hold')
