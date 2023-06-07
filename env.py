@@ -51,6 +51,8 @@ class StockMarket:
         self.FutureDFee=FutureDFee
         self.FutureTax=FutureTax
 
+
+
     def __get_dataset(self, start, end):
         ''' get the dataset and return the first state of the environment
 
@@ -83,6 +85,8 @@ class StockMarket:
         self.terminated = False
 
         return self.init_state, self.__set_info()
+
+    
 
     def step(self, action, invested_asset):
         ''' The environment recieves the action from agent and returns the reward and the next state
@@ -133,7 +137,7 @@ class StockMarket:
         assert invested_asset > 0
 
         cur_day_data = self.dataset.iloc[self.cur_trade_day]
-        close_price, open_price = cur_day_data['Close'], cur_day_data['Open']
+        close_price, open_price, Low, High = cur_day_data['Close'], cur_day_data['Open'], cur_day_data['Low'], cur_day_data['High']
         increase = (close_price - open_price) > 0
 
         
@@ -149,7 +153,9 @@ class StockMarket:
         final_price = Lot * price_change
         earning = final_price * 50 * B
         TransactionFee = self.FeeCalculation(Lot)
-        return np.clip(float(cur_day_data['Price change Ratio'][:-1]) * action, a_min=-2, a_max=0.6), earning - TransactionFee
+        mdd = -(open_price-Low) if action>=0 else (open_price-High)
+        change_sign = 1 if price_change >= 0 else -1
+        return price_change * B + B*mdd, earning - TransactionFee
 
 
     def __state_transition(self):
