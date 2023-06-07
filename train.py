@@ -145,7 +145,13 @@ def train(args):
             #critic_hidden_state = new_critic_hidden_state.detach().cpu().numpy()
 
             # print(action, agent.asset)
+
             
+
+
+
+            
+
             if terminated or agent.asset <= 0:
                 agent.rnn.reset_hidden_state(done=True)
                 break

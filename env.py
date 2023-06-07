@@ -52,6 +52,8 @@ class StockMarket:
         self.FutureTax=FutureTax
         self.train_mode=train_mode
 
+
+
     def __get_dataset(self, start, end):
         ''' get the dataset and return the first state of the environment
 
@@ -87,6 +89,8 @@ class StockMarket:
         self.terminated = False
         
         return self.init_state, self.__set_info()
+
+    
 
     def step(self, action, invested_asset):
         ''' The environment recieves the action from agent and returns the reward and the next state
@@ -161,6 +165,9 @@ class StockMarket:
         #print(action*change_sign, mdd/200)
         #print(price_change, action, w) 
         return action*change_sign + mdd / 250, earning - TransactionFee
+        # mdd = -(open_price-Low) if action>=0 else (open_price-High)
+        # change_sign = 1 if price_change >= 0 else -1
+        # return price_change * B + B*mdd, earning - TransactionFee
 
 
     def __state_transition(self):
