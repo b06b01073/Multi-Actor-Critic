@@ -59,16 +59,9 @@ class ComponentAgent:
         hard_update(self.actor_target, self.actor) # Make sure target is with the same weight
         hard_update(self.critic_target, self.critic)
         
-        # Hyper-parameters
+        # Hyper-parameter
         self.is_training = True
-<<<<<<< HEAD
-        #
-        # self.rnn_mode = args.rnn_mode
-        self.tau = args.tau
-        self.discount = args.discount
-        self.random_process = OrnsteinUhlenbeckProcess(mu=0, sigma=0.2)
-=======
-        #self.rnn_mode = args.rnn_mode
+
         self.tau = args.tau
         self.discount = args.discount
         #self.random_process = GuassianNoise(mu=0, sigma=0.15)
@@ -78,20 +71,11 @@ class ComponentAgent:
         self.depsilon = 1.0 / args.epsilon_decay
         self.epsilon = 1.0
         self.random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=args.ou_theta, mu=args.ou_mu, sigma=args.ou_sigma)
-
->>>>>>> 76840c7e67d9671a7da3bfbb281c03855edb55a2
-
-
         ### Optimizer and LR_scheduler ###
         beta1 = args.beta1
         beta2 = args.beta2
-<<<<<<< HEAD
-        self.critic_optim  = Adam(self.critic.parameters(), lr=args.c_rate, weight_decay=2e-4)
-        self.actor_optim  = Adam(self.actor.parameters(), lr=args.a_rate, weight_decay=2e-4)
-=======
         #self.critic_optim  = Adam(self.critic.parameters(), lr=args.c_rate, weight_decay=1e-4)
         #self.actor_optim  = Adam(self.actor.parameters(), lr=args.a_rate, weight_decay=1e-4)
->>>>>>> 76840c7e67d9671a7da3bfbb281c03855edb55a2
 
         self.rnn_optim = Adam(self.rnn.parameters(), lr=args.r_rate, betas=(beta1, beta2))
         self.rnn_scheduler = Scheduler.StepLR(self.rnn_optim, step_size=args.sch_step_size, gamma=args.sch_gamma)
@@ -121,11 +105,7 @@ class ComponentAgent:
     def build_state(self, state):
         if state is None:
             return None
-<<<<<<< HEAD
-        #print(state)
-=======
         # print(state)
->>>>>>> 76840c7e67d9671a7da3bfbb281c03855edb55a2
         prev_opens = [state.iloc[i]['norm_Open'] for i in range(self.data_interval - 1)]
         prev_highs = [state.iloc[i]['norm_High'] for i in range(self.data_interval - 1)]
         prev_closes = [state.iloc[i]['norm_Close'] for i in range(self.data_interval - 1)]
@@ -133,21 +113,6 @@ class ComponentAgent:
         prev_volumes = [state.iloc[i]['norm_Volume'] for i in range(self.data_interval - 1)]
         prev_MA5 = [state.iloc[i]['norm_MA5'] for i in range(self.data_interval - 1)]
         prev_MA10 = [state.iloc[i]['norm_MA10'] for i in range(self.data_interval - 1)]
-<<<<<<< HEAD
-        prev_std5=[state.iloc[i]['norm_std5'] for i in range(self.data_interval - 1)]
-        
-        if self.agent_type == 1:
-            concat_data = prev_opens  + prev_highs + prev_lows + prev_closes + prev_MA5 + prev_MA10 + prev_std5
-            return torch.FloatTensor(concat_data)
-
-    def increase_action_freedom(self):
-        self.action_freedom += 0.02
-        self.action_freedom = min(self.action_freedom, 1)
-
-    def init_action_freedom(self):
-        self.action_freedom=1
-    def take_action(self, state, actor_hidden_state, critic_hidden_state, noise_enable=True):
-=======
         self.temp_observation = ['norm_Open','norm_Close','norm_High','norm_Low',
                                  'norm_Volume','norm_MA5', 'norm_MA10']
         if self.agent_type == 1:
@@ -167,15 +132,30 @@ class ComponentAgent:
         print(state)
         tensor_state = torch.from_numpy(state.values).float()
         return tensor_state
-
+    def get_freedom(self):
+        return self.action_freedom
 
     def increase_action_freedom(self):
-        self.action_freedom += 0.05
+        self.action_freedom += 0.02
         self.action_freedom = min(self.action_freedom, 1)
 
-
+    def take_example_action(self, winset, state):
+        # ma5=state.iloc[1]['norm_MA5']-state.iloc[2]['norm_MA5']
+        # action = 0
+        # if state.iloc[0]['norm_Open'] > ma5 and ma5 > 0:
+        #     if state.iloc[1]['norm_MA5']>state.iloc[1]['norm_MA10']:
+        #         action = 0.8
+        #     else:
+        #         action = 0.4
+        # elif state.iloc[0]['norm_Open'] < ma5 and ma5 < 0:
+        #     if state.iloc[1]['norm_MA5']<state.iloc[1]['norm_MA10']:
+        #         action = -0.8 
+        #     else:
+        #         action=-0.4
+        price_change=state.iloc[0]['norm_Open']-state.iloc[0]['norm_Close']
+        
+        return 0.7 if price_change*winset > 0 else - 0.7
     def take_action_ori(self, state, actor_hidden_state, critic_hidden_state, noise_enable=True):
->>>>>>> 76840c7e67d9671a7da3bfbb281c03855edb55a2
         # TODO: select action based on the model output
         ma5=state.iloc[1]['norm_MA5']-state.iloc[2]['norm_MA5']
         state = self.build_state(state).to(device)
@@ -520,11 +500,7 @@ class ComponentAgent:
 
     def save_model(self, checkpoint_path, episode, ewma_reward):
         e_reward = int(np.round(ewma_reward)) #(ewma_reward,2)
-<<<<<<< HEAD
-        description = '_'  +'_' +'ep' +str(episode) +'_' +'rd' +str(e_reward) +'_' +str(self.date) +'.pkl'
-=======
         description = '_' +'ep' +str(episode) +'_' +'rd' +str(e_reward) +'_' +str(self.date) +'.pkl'
->>>>>>> 76840c7e67d9671a7da3bfbb281c03855edb55a2
         if self.is_BClone:
             description = '_BC' +description
         model_path = checkpoint_path +'/' +description

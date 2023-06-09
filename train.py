@@ -9,30 +9,39 @@ from memory import EpisodicMemory, ReplayBuffer
 from baseline import baseline
 
 def test(testmarket, agent, lastasset):
-    agent.reset_asset()
-    #agent.init_action_freedom()
+    agent = ComponentAgent(args)   
+    returns = [0]
+    assets = [agent.asset]
     obs, _ = testmarket.reset()
-    actor_hidden_state = np.zeros(args.hidden_dim)
-    critic_hidden_state = np.zeros(args.hidden_dim)
-    assets=[agent.asset]
+    total_reward = 0
+    trajectory_steps = 0
     for _ in tqdm(range(len(testmarket))):
-        action, invested_asset, filtered_obs, new_actor_hidden_state, new_critic_hidden_state = agent.take_action(obs, actor_hidden_state, critic_hidden_state,False)
-        next_obs, reward, terminated, earning, _ = testmarket.step(action, invested_asset)
-        #total_reward += reward
-        # print(reward)
-
-
-        next_filtered_obs = agent.build_state(next_obs)
+        
+        filtered_obs = agent.build_state(obs)
+        action, invested_asset = agent.take_action(filtered_obs)
+        next_obs, reward, terminated, earning, _ = testmarket.step(action, invested_asset,agent.get_freedom())
+        total_reward += reward
+            
         obs = next_obs
-        actor_hidden_state = new_actor_hidden_state.detach().cpu().numpy()
-        critic_hidden_state = new_critic_hidden_state.detach().cpu().numpy()
+
+
+
         agent.update_asset(earning)
         assets.append(agent.asset.item())
-        with open("record.txt", 'a') as f:
-            f.write(f'{agent.asset}, {action}, {invested_asset}, {earning}, {reward}')
-            f.write("\n")
+
+        trajectory_steps +=1
+        if trajectory_steps >= args.exp_traj_len:
+        ### 以下設定是為了讓hidden_state繼續往下一個step傳遞 ###
+            agent.rnn.reset_hidden_state(done=False)
+            trajectory_steps = 0
+
+            #agent.learn(experiences)
+            #agent.soft_update()
         if terminated or agent.asset <= 0:
+            agent.rnn.reset_hidden_state(done=True)
             break
+        
+    
     if agent.asset.item()>lastasset:
         lastasset=agent.asset.item()
         agent.save()
@@ -48,11 +57,11 @@ def train(args):
     agent = ComponentAgent(args)
     test_asset=0
     simu_asset=0
-    Simumarket=env.make(csv_path=args.data_path, start=args.simustart, end=args.simuend, 
+    Simumarket=env.make(args, csv_path=args.data_path, start=args.simustart, end=args.simuend, 
                       FutureCost=args.FutureCost, FutureFee=args.FutureFee, FutureDFee=args.FutureDfee, FutureTax=args.FutureTax, data_interval=args.data_interval, train_mode=False)
-    testmarket=env.make(csv_path=args.data_path, start=args.teststart, end=args.testend, 
+    testmarket=env.make(args, csv_path=args.data_path, start=args.teststart, end=args.testend, 
                       FutureCost=args.FutureCost, FutureFee=args.FutureFee, FutureDFee=args.FutureDfee, FutureTax=args.FutureTax, data_interval=args.data_interval, train_mode=False)
-    market = env.make(csv_path=args.data_path, start=args.start, end=args.end, 
+    market = env.make(args, csv_path=args.data_path, start=args.start, end=args.end, 
                       FutureCost=args.FutureCost, FutureFee=args.FutureFee, FutureDFee=args.FutureDfee, FutureTax=args.FutureTax, data_interval=args.data_interval, train_mode=False)
     
     #memory = ReplayBuffer(capacity=args.rmsize)
@@ -61,7 +70,7 @@ def train(args):
     #memory = ReplayBuffer(capacity=args.rmsize)
     memory = EpisodicMemory(capacity=args.rmsize, max_train_traj_len=args.exp_traj_len,window_length=args.window_length)
    
-
+   #replayMemory = EpisodicMemory(capacity=args.rmsize, max_train_traj_len=args.exp_traj_len,window_length=args.window_length)
     logger = SummaryWriter(os.path.join("runs", args.run_name))
    
 
@@ -71,9 +80,16 @@ def train(args):
     L,S=baseline(args,args.start,args.end)
     lt,st=baseline(args,args.teststart,args.testend)
     slt,sst=baseline(args,args.simustart,args.simuend)
+   
+    win_this=[]
+    win_last=[]
     for i in range(args.epoch):
         obs, _ = market.reset()
         agent.reset_asset()
+        settheActionwin = []
+        for i in range(0, len(market)):
+            settheActionwin.append(np.random.choice([-1, 1], p=[1-args.imitative_Win_Ratio, args.imitative_Win_Ratio]))
+        print(settheActionwin)
         #agent.reset_lstm_hidden_state(done=True)
         total_reward = 0
         trajectory_steps = 0
@@ -86,24 +102,36 @@ def train(args):
         #total_value_loss = 0
         #total_policy_loss = 0
 
-
-        for _ in tqdm(range(len(market)), desc=f'epoch {i}'):
+        count=0
+        actionwinnumber=0
+        for _ in tqdm(range(len(market)), desc=f'epoch {i}, warm_up {args.warmup}'):
 
             agent.reset_noise()
-            
+            filtered_obs = agent.build_state(obs)
             if i >= args.warmup:
                 #action, invested_asset, filtered_obs, new_actor_hidden_state, new_critic_hidden_state = agent.take_action(obs, actor_hidden_state, critic_hidden_state)
                 # filtered_obs : state0 : market_observation :
-                filtered_obs = agent.build_state(obs)
+                
                 action, invested_asset = agent.take_action(filtered_obs)
             else:
-                action = np.random.uniform(-1, 1, (1,)).astype('float32')
+                action = agent.take_example_action(settheActionwin[actionwinnumber],obs)
+                
+                #if action == 0:
+                #    action = np.random.uniform(-0.3, 0.3, (1,)).astype('float32')
+                action = np.clip(action, 1, -1)
                 #filtered_obs = agent.build_state(obs).squeeze().cpu().numpy()
                 invested_asset = args.asset # keep it rolling
 
 
 
-            next_obs, reward, terminated, earning, _ = market.step(action, invested_asset)
+            next_obs, reward, terminated, earning, _ = market.step(action, invested_asset, agent.get_freedom())
+            actionwinnumber+=1
+            if reward > 0: 
+                count += 1
+                win_this.append(1)
+            else: 
+                win_this.append(0)
+            
             total_reward += reward
             # print(reward)
 
@@ -125,16 +153,16 @@ def train(args):
             if i >= args.warmup:
                 agent.update_asset(earning)
                 assets.append(agent.asset.item())
-                experiences = memory.sample(args.batch_size)
+            experiences = memory.sample(args.batch_size)
 
-                trajectory_steps +=1
-                if trajectory_steps >= args.exp_traj_len:
-                ### 以下設定是為了讓hidden_state繼續往下一個step傳遞 ###
-                    agent.rnn.reset_hidden_state(done=False)
-                    trajectory_steps = 0
+            trajectory_steps +=1
+            if trajectory_steps >= args.exp_traj_len:
+            ### 以下設定是為了讓hidden_state繼續往下一個step傳遞 ###
+                agent.rnn.reset_hidden_state(done=False)
+                trajectory_steps = 0
 
-                    agent.learn(experiences)
-                    agent.soft_update()
+                agent.learn(experiences)
+                agent.soft_update()
 
                 # if loss is not None:
                 #     total_policy_loss += loss[0].item()
@@ -156,39 +184,40 @@ def train(args):
                 agent.rnn.reset_hidden_state(done=True)
                 break
             
-        
-        plt.clf()
-        plt.plot(assets)
-        plt.plot(L,color='RED')
-        plt.plot(S,color='GREEN')
-        plt.savefig('img/result.jpg')
-        train_asset=agent.asset
-        test_asset,test_assets=test(testmarket,agent,test_asset)
-        plt.clf()
-        plt.plot(test_assets)
-        plt.plot(lt,color='RED')
-        plt.plot(st,color='GREEN')
-        plt.savefig('img/test_result.jpg')
-        
-        simu_asset,Simu_assets=test(Simumarket,agent,simu_asset)
-        plt.clf()
-        plt.plot(Simu_assets)
-        plt.plot(slt,color='RED')
-        plt.plot(sst,color='GREEN')
-        plt.savefig('img/Simu_result.jpg')
-        agent.increase_action_freedom()
-        returns.append(agent.asset / agent.init_asset)
-        print(f'epoch: {i}, total_reward: {total_reward}, asset: {train_asset}, return: {train_asset / agent.init_asset}, action_freedom: {agent.action_freedom}, test_return: {test_asset} , Simu_asset: {simu_asset}')
-        #print(f'epoch: {i}, total_reward: {total_reward}, asset: {agent.asset}, return: {agent.asset / agent.init_asset}, action_freedom: {agent.action_freedom}')
-        logger.add_scalar("total_reward", total_reward, i)
-        logger.add_scalar("asset", agent.asset, i)
-        logger.add_scalar("return", (agent.asset / agent.init_asset), i)
-        # logger.add_scalar("policy_loss", total_policy_loss, i)
-        # logger.add_scalar("value_loss", total_value_loss, i)
-
-        plt.clf()
-        plt.plot(returns,color='Blue')
-        plt.savefig('img/returns.jpg')
+        if i >= args.warmup-1:
+            plt.clf()
+            plt.plot(assets)
+            plt.plot(L,color='RED')
+            plt.plot(S,color='GREEN')
+            plt.savefig('img/result.jpg')
+            train_asset=agent.asset
+            test_asset,test_assets=test(testmarket,agent,test_asset)
+            plt.clf()
+            plt.plot(test_assets)
+            plt.plot(lt,color='RED')
+            plt.plot(st,color='GREEN')
+            plt.savefig('img/test_result.jpg')
+            
+            simu_asset,Simu_assets=test(Simumarket,agent,simu_asset)
+            plt.clf()
+            plt.plot(Simu_assets)
+            plt.plot(slt,color='RED')
+            plt.plot(sst,color='GREEN')
+            plt.savefig('img/Simu_result.jpg')
+            agent.increase_action_freedom()
+            returns.append(agent.asset / agent.init_asset)
+            print(f'epoch: {i}, total_reward: {total_reward}, asset: {train_asset}, return: {train_asset / agent.init_asset}, action_freedom: {agent.action_freedom}, test_return: {test_asset} , Simu_asset: {simu_asset}, Win_rate: {count/len(market)}')
+            #print(f'epoch: {i}, total_reward: {total_reward}, asset: {agent.asset}, return: {agent.asset / agent.init_asset}, action_freedom: {agent.action_freedom}')
+            logger.add_scalar("total_reward", total_reward, i)
+            logger.add_scalar("asset", agent.asset, i)
+            logger.add_scalar("return", (agent.asset / agent.init_asset), i)
+            # logger.add_scalar("policy_loss", total_policy_loss, i)
+            # logger.add_scalar("value_loss", total_value_loss, i)
+            win_last=win_this
+            plt.clf()
+            plt.plot(returns,color='Blue')
+            plt.savefig('img/returns.jpg')
+        else: print(f'epoch: {i}, total_reward: {total_reward}, count: {count}')
 
 def get_upperbound(market, asset):
     total_reward = 0 
@@ -260,13 +289,13 @@ if __name__ == '__main__':
     parser.add_argument('--data_interval', type=int, default=30)
     
     ##### Learning Setting #####
-    parser.add_argument('--r_rate', default=0.0001, type=float, help='gru layer learning rate')  
-    parser.add_argument('--c_rate', default=1e-4, type=float, help='critic net learning rate') 
-    parser.add_argument('--a_rate', default=1e-5, type=float, help='policy net learning rate (only for DDPG)')
+    parser.add_argument('--r_rate', default=0.005, type=float, help='gru layer learning rate')  
+    parser.add_argument('--c_rate', default=1e-3, type=float, help='critic net learning rate') 
+    parser.add_argument('--a_rate', default=5e-4, type=float, help='policy net learning rate (only for DDPG)')
     parser.add_argument('--beta1', default=0.3, type=float, help='mometum beta1 for Adam optimizer')
     parser.add_argument('--beta2', default=0.9, type=float, help='mometum beta2 for Adam optimizer')
     parser.add_argument('--batch_size', default=64, type=int, help='minibatch size')
-    parser.add_argument('--warmup', default=-1, type=int)
+    parser.add_argument('--warmup', default=10, type=int)
     parser.add_argument('--sch_step_size', default=16*150, type=float, help='LR_scheduler: step_size')
     parser.add_argument('--sch_gamma', default=0.5, type=float, help='LR_scheduler: gamma')
     #parser.add_argument('--bsize', default=100, type=int, help='minibatch size')
@@ -327,7 +356,9 @@ if __name__ == '__main__':
     parser.add_argument('--lambda_Policy', default=0.7, type=int, help='The weight for actor loss')
     # parser.add_argument('--lambda_BC', default=0.5, type=int, help='The weight for BC loss after Q-filter, default is equal to (1-lambda_Policy)')
  
-
+    ##### Imitative Learning #####
+    parser.add_argument('--imitative_Win_Ratio', default=0.7, help='Adjust the imitative win ratio')
+    #parser.add_argument('--is_Qfilt', default=False, action='store_true', help='conduct Q-filter or not')
 
     
     args = parser.parse_args()
