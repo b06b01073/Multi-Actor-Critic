@@ -46,7 +46,7 @@ class ComponentAgent:
         self.num_layer = args.num_rnn_layer
         self.batch_size = args.batch_size
 
-
+        hard_update(self.rnn_target, self.rnn)
         hard_update(self.actor_target, self.actor) # Make sure target is with the same weight
         hard_update(self.critic_target, self.critic)
         
