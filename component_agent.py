@@ -190,6 +190,9 @@ class ComponentAgent:
         return action, invested_asset, state.squeeze().cpu().numpy(), actor_hidden_state, critic_hidden_state
     
 
+
+    
+
     def take_action(self, state, noise_enable=True, decay_epsilon=True):
         # TODO: select action based on the model output
         xh, _ = self.rnn(state.unsqueeze(dim=0))

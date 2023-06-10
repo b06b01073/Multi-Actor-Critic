@@ -57,12 +57,9 @@ def train(args):
     agent = ComponentAgent(args)
     test_asset=0
     simu_asset=0
-    Simumarket=env.make(args, csv_path=args.data_path, start=args.simustart, end=args.simuend, 
-                      FutureCost=args.FutureCost, FutureFee=args.FutureFee, FutureDFee=args.FutureDfee, FutureTax=args.FutureTax, data_interval=args.data_interval, train_mode=False)
-    testmarket=env.make(args, csv_path=args.data_path, start=args.teststart, end=args.testend, 
-                      FutureCost=args.FutureCost, FutureFee=args.FutureFee, FutureDFee=args.FutureDfee, FutureTax=args.FutureTax, data_interval=args.data_interval, train_mode=False)
-    market = env.make(args, csv_path=args.data_path, start=args.start, end=args.end, 
-                      FutureCost=args.FutureCost, FutureFee=args.FutureFee, FutureDFee=args.FutureDfee, FutureTax=args.FutureTax, data_interval=args.data_interval, train_mode=False)
+    Simumarket=env.make(args, train_mode=False)
+    testmarket=env.make(args, train_mode=False)
+    market = env.make(args, train_mode=True)
     
     #memory = ReplayBuffer(capacity=args.rmsize)
                      # FutureCost=args.FutureCost, FutureFee=args.FutureFee, FutureDFee=args.FutureDfee, FutureTax=args.FutureTax, data_interval=args.#data_interval)
@@ -73,7 +70,6 @@ def train(args):
    #replayMemory = EpisodicMemory(capacity=args.rmsize, max_train_traj_len=args.exp_traj_len,window_length=args.window_length)
     logger = SummaryWriter(os.path.join("runs", args.run_name))
    
-
 
 
     returns = []
@@ -133,22 +129,9 @@ def train(args):
                 win_this.append(0)
             
             total_reward += reward
-            # print(reward)
-
-            #Experience = namedtuple('Experience',  'state0, action, reward, state1, terminal1')
-            #next_filtered_obs = agent.build_state(next_obs)
-            #obs = next_obs
-
-            # memory.append(action_bc, state0, action, reward, done)
-
-
-            #if next_filtered_obs is not None:
-                #memory.append(filtered_obs, action, reward, next_filtered_obs, terminated, actor_hidden_state, critic_hidden_state)
-            # print(terminated)
-            memory.append(filtered_obs, action.item(), reward, terminated)
-                
+            
+            memory.append(action_bc,filtered_obs, action.item(), reward, terminated)
             obs = next_obs
-
 
             if i >= args.warmup:
                 agent.update_asset(earning)
@@ -157,27 +140,9 @@ def train(args):
 
             trajectory_steps +=1
             if trajectory_steps >= args.exp_traj_len:
-            ### 以下設定是為了讓hidden_state繼續往下一個step傳遞 ###
                 agent.rnn.reset_hidden_state(done=False)
                 trajectory_steps = 0
-
-                agent.learn(experiences)
-                agent.soft_update()
-
-                # if loss is not None:
-                #     total_policy_loss += loss[0].item()
-                #     total_value_loss += loss[1].item()
-                
-
-            #actor_hidden_state = new_actor_hidden_state.detach().cpu().numpy()
-            #critic_hidden_state = new_critic_hidden_state.detach().cpu().numpy()
-
-            # print(action, agent.asset)
-
-            
-
-
-
+                actor_loss, BC_loss, BC_loss_Qf, tot_policy_loss, critic_loss = agent.learn(experiences,i)
             
 
             if terminated or agent.asset <= 0:
@@ -211,6 +176,14 @@ def train(args):
             logger.add_scalar("total_reward", total_reward, i)
             logger.add_scalar("asset", agent.asset, i)
             logger.add_scalar("return", (agent.asset / agent.init_asset), i)
+            returns.append(agent.asset / agent.init_asset)
+            logger.add_scalar("actor_loss",actor_loss, i)
+            logger.add_scalar("BC_loss", BC_loss, i)
+            logger.add_scalar("BC_loss_Qf", BC_loss_Qf, i)
+            logger.add_scalar("tot_policy_loss", tot_policy_loss, i)
+            logger.add_scalar("critic_loss", critic_loss, i)
+            
+
             # logger.add_scalar("policy_loss", total_policy_loss, i)
             # logger.add_scalar("value_loss", total_value_loss, i)
             win_last=win_this
@@ -218,6 +191,11 @@ def train(args):
             plt.plot(returns,color='Blue')
             plt.savefig('img/returns.jpg')
         else: print(f'epoch: {i}, total_reward: {total_reward}, count: {count}')
+        
+
+        plt.clf()
+        plt.plot(returns)
+        plt.savefig('img/returns.jpg')
 
 def get_upperbound(market, asset):
     total_reward = 0 
@@ -235,7 +213,7 @@ def get_upperbound(market, asset):
         else:
             action = 1
 
-        obs, reward, terminated, earning, _ =  market.step(action, asset)
+        action_bc,next_obs, reward, terminated, earning, _ =  market.step(action, asset)
 
         max_asset += earning
 
@@ -256,7 +234,7 @@ def get_upperbound(market, asset):
         else:
             action = 1
 
-        obs, reward, terminated, earning, _ =  market.step(action, asset)
+        action_bc,next_obs, reward, terminated, earning, _ =  market.step(action, asset)
 
         min_asset += earning
 
@@ -286,7 +264,7 @@ if __name__ == '__main__':
     parser.add_argument('--epoch', default=1000, type=int) 
     parser.add_argument('--agent_type', type=int, default=1)
     parser.add_argument('--device', type=str, default='cuda')
-    parser.add_argument('--data_interval', type=int, default=30)
+    parser.add_argument('--data_interval', type=int, default=10)
     
     ##### Learning Setting #####
     parser.add_argument('--r_rate', default=0.005, type=float, help='gru layer learning rate')  
@@ -334,8 +312,8 @@ if __name__ == '__main__':
     parser.add_argument('--mode', default='train', type=str, help='support option: train/test')
     
 
-    parser.add_argument('--data_path', '-d', type=str, default='./TX_data/Normalized_TX_TI.csv')
-    parser.add_argument('--start', '-s', type=str, default='2021-01-01') # Do not add quote when providing this arguement in command line.
+    parser.add_argument('--data_path', '-d', type=str, default='TX_data/Normalized_TX_TI.csv')
+    parser.add_argument('--start', '-s', type=str, default='2022-01-01') # Do not add quote when providing this arguement in command line.
     parser.add_argument('--end', '-e', type=str, default='2022-12-30')
     parser.add_argument('--teststart', '-ts', type=str, default='2010-01-06') # Do not add quote when providing this arguement in command line.
     parser.add_argument('--testend', '-te', type=str, default='2022-12-30')
@@ -348,10 +326,11 @@ if __name__ == '__main__':
     parser.add_argument('--FutureTax', '-FT', type=float, default=0.00002)
     parser.add_argument('--FutureFee', '-FF', type=float, default=12)
     parser.add_argument('--FutureDfee', '-FDF', type=float, default=8)
+    parser.add_argument('--DotCost','-DC',type=float, default=50)
 
     ##### Behavior Cloning #####
-    parser.add_argument('--is_BClone', default=False, action='store_true', help='conduct behavior cloning or not')
-    parser.add_argument('--is_Qfilt', default=False, action='store_true', help='conduct Q-filter or not')
+    parser.add_argument('--is_BClone', default=True, action='store_true', help='conduct behavior cloning or not')
+    parser.add_argument('--is_Qfilt', default=True, action='store_true', help='conduct Q-filter or not')
     parser.add_argument('--use_Qfilt', default=100, type=int, help='set the episode after warmup to use Q-filter')
     parser.add_argument('--lambda_Policy', default=0.7, type=int, help='The weight for actor loss')
     # parser.add_argument('--lambda_BC', default=0.5, type=int, help='The weight for BC loss after Q-filter, default is equal to (1-lambda_Policy)')
@@ -362,6 +341,6 @@ if __name__ == '__main__':
 
     
     args = parser.parse_args()
-    args.run_name = "GRU"
+    args.run_name = "BC_oriReward_n"
 
     train(args)
